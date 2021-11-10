@@ -31,16 +31,21 @@ class Piece():
     __owner: Owner
     __piece_kind: str
     __hasMoved: bool
+    __hasJumpedTwoFields: bool
     __id: int
 
     def __init__(self, piece_kind: str, owner: Owner):
         self.__piece_kind = piece_kind
         self.__owner = owner
         self.__hasMoved = False
+        self.__hasJumpedTwoFields = False
         self.__id = None
 
     def getKind(self):
         return self.__piece_kind
+
+    def setKind(self, kind: str):
+        self.__piece_kind = kind
 
     def getOwner(self) -> Owner:
         return self.__owner
@@ -190,6 +195,7 @@ click_history = []
 move_history = []
 turn = 1
 historylist_length = 0
+promotion_piece = "None"
 
 isBoard_initialized = False
 
@@ -581,6 +587,15 @@ def getFieldByName(name: str) -> Field:
             if boardFields[row][column].getName() == name:
                 return boardFields[row][column]
 
+def getAllPlayerField(player: int) -> list:
+    all_fields = []
+    for row in range(0, len(boardFields)):
+        for column in range(0, len(boardFields[row])):
+            if boardFields[row][column].getPiece().getOwner().getPlayer() == player:
+                all_fields.append(boardFields[row][column])
+    return all_fields
+
+
 # Determines the playfield square that got clicked on
 def getFieldClicked(click_coords) -> Field:
     for row in range(0, len(boardFields)):
@@ -694,10 +709,10 @@ def getValidPawnMoves(origin_field: Field) -> list:
     piece_column = origin_field.getColumn()
     valid_moves = []
     if player == 1:
-        if piece_row == 1:
-            valid_moves.append(boardFields[piece_row+2][piece_column].getName())
         if not(boardFields[piece_row+1][piece_column].hasPiece()):
             valid_moves.append(boardFields[piece_row+1][piece_column].getName())
+            if piece_row == 1:
+                valid_moves.append(boardFields[piece_row+2][piece_column].getName())
 
         if piece_column == 0:
             if boardFields[piece_row+1][piece_column+1].hasPiece():
@@ -715,10 +730,10 @@ def getValidPawnMoves(origin_field: Field) -> list:
                 if not(boardFields[piece_row+1][piece_column+1].getPiece().getOwner().getPlayer() == current_player):
                     valid_moves.append(boardFields[piece_row+1][piece_column+1].getName())
     elif player == 2:
-        if piece_row == 6:
-            valid_moves.append(boardFields[piece_row-2][piece_column].getName())
         if not(boardFields[piece_row-1][piece_column].hasPiece()):
             valid_moves.append(boardFields[piece_row-1][piece_column].getName())
+            if piece_row == 6:
+                valid_moves.append(boardFields[piece_row-2][piece_column].getName())
 
         if piece_column == 0:
             if boardFields[piece_row-1][piece_column+1].hasPiece():
@@ -756,18 +771,18 @@ def getValidRookMoves(origin_field: Field) -> list:
             if boardFields[row_in_negative_x][piece_column].hasPiece():
                 break
     for column_in_positiv_x in range(piece_column+1, len(boardFields[piece_row])):
-        if boardFields[piece_row][column_in_positiv_x].getPiece().getOwner().getPlayer() == current_player:
+        if boardFields[piece_row][column_in_positiv_x].getPiece().getOwner().getPlayer() == current_player and not(boardFields[piece_row][column_in_positiv_x].getPiece().getKind() == "King" and not(origin_field.getPiece().getKind() == "Queen")):
             break
         else:
-            valid_moves.append(boardFields[piece_row][column_in_positiv_x].getName())
-            if boardFields[piece_row][column_in_positiv_x].hasPiece():
+             valid_moves.append(boardFields[piece_row][column_in_positiv_x].getName())
+             if boardFields[piece_row][column_in_positiv_x].hasPiece() and not(origin_field.getPiece().getHasMoved() == False and boardFields[piece_row][column_in_positiv_x].getPiece().getHasMoved() == False):
                 break
     for column_in_negative_x in range(piece_column-1, -1, -1):
-        if boardFields[piece_row][column_in_negative_x].getPiece().getOwner().getPlayer() == current_player:
+        if boardFields[piece_row][column_in_negative_x].getPiece().getOwner().getPlayer() == current_player and not(boardFields[piece_row][column_in_negative_x].getPiece().getKind() == "King" and not(origin_field.getPiece().getKind() == "Queen")):
             break
         else:
             valid_moves.append(boardFields[piece_row][column_in_negative_x].getName())
-            if boardFields[piece_row][column_in_negative_x].hasPiece():
+            if boardFields[piece_row][column_in_negative_x].hasPiece() and not(origin_field.getPiece().getHasMoved() == False and boardFields[piece_row][column_in_negative_x].getPiece().getHasMoved() == False):
                 break
     return valid_moves
 
@@ -869,26 +884,48 @@ def getValidQueenMoves(origin_field: Field) -> list:
 
 def getValidKingMoves(origin_field: Field) -> list:
     player = origin_field.getPiece().getOwner().getPlayer()
+    if player == 1:
+        enemy_player = 2
+    else:
+        enemy_player = 1
     piece_row = origin_field.getRow()
     piece_column = origin_field.getColumn()
     valid_moves = []
-    if not(piece_row + 1 > 7) and not(piece_column - 1 < 0) and not(boardFields[piece_row+1][piece_column-1].getPiece().getOwner().getPlayer() == current_player):
+    illegal_moves = []
+    if player == current_player:
+        illegal_moves = findIllegalCheckMoves(getAllPlayerField(enemy_player))
+    
+    if not(piece_row + 1 > 7) and not(piece_column - 1 < 0) and not(boardFields[piece_row+1][piece_column-1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row+1][piece_column-1].getName())):
         valid_moves.append(boardFields[piece_row+1][piece_column-1].getName())
-    if not(piece_row + 1 > 7) and not(boardFields[piece_row+1][piece_column].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_row + 1 > 7) and not(boardFields[piece_row+1][piece_column].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row+1][piece_column].getName())):
         valid_moves.append(boardFields[piece_row+1][piece_column].getName())
-    if not(piece_row + 1 > 7) and not(piece_column + 1 > 7) and not(boardFields[piece_row+1][piece_column+1].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_row + 1 > 7) and not(piece_column + 1 > 7) and not(boardFields[piece_row+1][piece_column+1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row+1][piece_column+1].getName())):
         valid_moves.append(boardFields[piece_row+1][piece_column+1].getName())
-    if not(piece_row - 1 < 0) and not(piece_column - 1 < 0) and not(boardFields[piece_row-1][piece_column-1].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_row - 1 < 0) and not(piece_column - 1 < 0) and not(boardFields[piece_row-1][piece_column-1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row-1][piece_column-1].getName())):
         valid_moves.append(boardFields[piece_row-1][piece_column-1].getName())
-    if not(piece_row - 1 < 0) and not(boardFields[piece_row-1][piece_column].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_row - 1 < 0) and not(boardFields[piece_row-1][piece_column].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row-1][piece_column].getName())):
         valid_moves.append(boardFields[piece_row-1][piece_column].getName())
-    if not(piece_row - 1 < 0) and not(piece_column + 1 > 7) and not(boardFields[piece_row-1][piece_column+1].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_row - 1 < 0) and not(piece_column + 1 > 7) and not(boardFields[piece_row-1][piece_column+1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row-1][piece_column+1].getName())):
         valid_moves.append(boardFields[piece_row-1][piece_column+1].getName())
-    if not(piece_column - 1 < 0) and not(boardFields[piece_row][piece_column-1].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_column - 1 < 0) and not(boardFields[piece_row][piece_column-1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row][piece_column-1].getName())):
         valid_moves.append(boardFields[piece_row][piece_column-1].getName())
-    if not(piece_column + 1 > 7) and not(boardFields[piece_row][piece_column+1].getPiece().getOwner().getPlayer() == current_player):
+    if not(piece_column + 1 > 7) and not(boardFields[piece_row][piece_column+1].getPiece().getOwner().getPlayer() == current_player) and not(containsFieldName(illegal_moves, boardFields[piece_row][piece_column+1].getName())):
         valid_moves.append(boardFields[piece_row][piece_column+1].getName())
     return valid_moves
+
+def findIllegalCheckMoves(fields_to_check: list) -> list:
+    illegal_moves = []
+    for figure in fields_to_check:
+        moves = getValidMoves(figure)
+        for name in moves:
+            illegal_moves.append(name)
+    return illegal_moves
+
+def containsFieldName(list_to_search_in: list, what_to_search_for: str) -> bool:
+    for name in list_to_search_in:
+        if name == what_to_search_for:
+            return True
+    return False
 
 def highlightMoves(moves: list, should_highlight: bool):
     if should_highlight:
@@ -905,13 +942,26 @@ def highlightMoves(moves: list, should_highlight: bool):
                 elif tag == "White":
                     chessboard.itemconfigure(id, fill=light_field_color, activefill="#1419a6")
 
+
 def movePiece(origin_field: Field, name_of_field_to_move_to: str):
     target_field = getFieldByName(name_of_field_to_move_to)
     if target_field.getName() == origin_field.getName():
         return
-    if target_field.hasPiece():
+    elif target_field.hasPiece() and not(target_field.getPiece().getOwner().getPlayer() == current_player):
         pieceCaptured(origin_field, target_field)
-    target_field.setPiece(origin_field.getPiece())
+    elif (origin_field.getPiece().getKind()) == "Pawn" and (target_field.getRow() == 0 or target_field.getRow() == 7):
+        target_field.setPiece(origin_field.getPiece())
+        global promotion_piece
+        promotion_piece = getPromotePawnPiece()
+        target_field.getPiece().setKind(promotion_piece)
+        print("Targetfield kind: " + target_field.getPiece().getKind())
+        promotion_piece = "None"
+    elif target_field.getPiece().getKind() == "King":
+        return
+    else:
+        target_field.setPiece(origin_field.getPiece())
+        target_field.getPiece().setHasMoved(True)
+
     origin_piece_kind = origin_field.getPiece().getKind()
     origin_field.setPiece(None)
 
@@ -919,6 +969,40 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
     nextPlayer()
     
     drawWindow()
+
+
+def returnPieceSelected(selected_piece_via_button: str, window: Toplevel, selected_piece_var: StringVar):
+    window.destroy()
+    # save selection
+    selected_piece_var.set(selected_piece_via_button)
+
+def getPromotePawnPiece() -> str:
+
+    optionsWindow = Toplevel()
+    selected_piece = StringVar(value="None") # use StringVar instead of normal string
+    pawnField = Button(optionsWindow, text="Pawn", anchor=W, command=lambda:
+                               returnPieceSelected("Pawn", optionsWindow, selected_piece))
+    rookField = Button(optionsWindow, text="Rook", anchor=W, command=lambda:
+                               returnPieceSelected("Rook", optionsWindow, selected_piece))
+    bishopField = Button(optionsWindow, text="Bishop", anchor=W, command=lambda:
+                               returnPieceSelected("Bishop", optionsWindow, selected_piece))
+    knightField = Button(optionsWindow, text="Knight", anchor=W, command=lambda:
+                               returnPieceSelected("Knight", optionsWindow, selected_piece))
+    queenField = Button(optionsWindow, text="Queen", anchor=W, command=lambda:
+                               returnPieceSelected("Queen", optionsWindow, selected_piece))
+
+    pawnField.grid(row=1, column=0, sticky=NSEW)
+    rookField.grid(row=1, column=1, sticky=NSEW)
+    bishopField.grid(row=1, column=3, sticky=NSEW)
+    knightField.grid(row=1, column=2, sticky=NSEW)
+    queenField.grid(row=1, column=4, sticky=NSEW)
+
+    # wait for user selection
+    optionsWindow.wait_window()
+
+    # return user selection
+    return selected_piece.get()
+
 
 def nextPlayer():
     global current_player
