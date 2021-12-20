@@ -268,129 +268,129 @@ class AI():
                                 if KingValue >= evaluation:
                                     piece_to_move = piece
                                     best_move = move_to_check
-            if piece.getPiece().getKind() == "Bishop":
-                if BISHOP[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                    evaluation = BISHOP[move_to_check.getRow()][move_to_check.getColumn()]
-                    piece_to_move = piece
-                    best_move = move_to_check
-                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                    if move_to_check.getPiece().getKind() == "Pawn":
-                        if PawnValue >= evaluation:
+                    if piece.getPiece().getKind() == "Bishop":
+                        if BISHOP[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = BISHOP[move_to_check.getRow()][move_to_check.getColumn()]
                             piece_to_move = piece
                             best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Knight":
-                        if KnightValue >= evaluation:
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                    if piece.getPiece().getKind() == "Rook":
+                        if ROOK[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = ROOK[move_to_check.getRow()][move_to_check.getColumn()]
                             piece_to_move = piece
                             best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Bishop":
-                        if BishopValue >= evaluation:
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                    if piece.getPiece().getKind() == "Queen":
+                        if QUEEN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = QUEEN[move_to_check.getRow()][move_to_check.getColumn()]
                             piece_to_move = piece
                             best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Rook":
-                        if RookValue >= evaluation:
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                    if piece.getPiece().getKind() == "King":
+                        if KING[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = KING[move_to_check.getRow()][move_to_check.getColumn()]
                             piece_to_move = piece
                             best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Queen":
-                        if QueenValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "King":
-                        if KingValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-            if piece.getPiece().getKind() == "Rook":
-                if ROOK[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                    evaluation = ROOK[move_to_check.getRow()][move_to_check.getColumn()]
-                    piece_to_move = piece
-                    best_move = move_to_check
-                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                    if move_to_check.getPiece().getKind() == "Pawn":
-                        if PawnValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Knight":
-                        if KnightValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Bishop":
-                        if BishopValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Rook":
-                        if RookValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Queen":
-                        if QueenValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "King":
-                        if KingValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-            if piece.getPiece().getKind() == "Queen":
-                if QUEEN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                    evaluation = QUEEN[move_to_check.getRow()][move_to_check.getColumn()]
-                    piece_to_move = piece
-                    best_move = move_to_check
-                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                    if move_to_check.getPiece().getKind() == "Pawn":
-                        if PawnValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Knight":
-                        if KnightValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Bishop":
-                        if BishopValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Rook":
-                        if RookValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Queen":
-                        if QueenValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "King":
-                        if KingValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-            if piece.getPiece().getKind() == "King":
-                if KING[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                    evaluation = KING[move_to_check.getRow()][move_to_check.getColumn()]
-                    piece_to_move = piece
-                    best_move = move_to_check
-                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                    if move_to_check.getPiece().getKind() == "Pawn":
-                        if PawnValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Knight":
-                        if KnightValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Bishop":
-                        if BishopValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Rook":
-                        if RookValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "Queen":
-                        if QueenValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-                    elif move_to_check.getPiece().getKind() == "King":
-                        if KingValue >= evaluation:
-                            piece_to_move = piece
-                            best_move = move_to_check
-            if best_move:
-                complete_move = Vector2D(piece_to_move, best_move)
-                return complete_move
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                    if best_move:
+                        complete_move = Vector2D(piece_to_move, best_move)
+                        return complete_move
 
 
 
