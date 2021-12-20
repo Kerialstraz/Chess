@@ -1,25 +1,30 @@
-from tkinter import * 
+import random
+import time
+from tkinter import *
 from dataclasses import dataclass, field, is_dataclass
 from typing import *
 from copy import deepcopy
 from tkinter import messagebox
 
-
+# Used to clump together number-pairs
 class Vector2D():
-    x: int
-    y: int
+    x = None
+    y = None
 
-    def __init__(self, x: int, y: int):
+    def __init__(self, x, y):
         self.x = x
         self.y = y
 
+# Stores information about the Owner or Player of the piece
 class Owner():
     __player: int
     __color: str
+    __is_AI: bool
 
-    def __init__(self, player: int, color: str):
+    def __init__(self, player: int, color: str, is_AI: bool):
         self.__player = player
         self.__color = color
+        self.__is_AI = is_AI
 
     def getColor(self):
         return self.__color
@@ -27,18 +32,17 @@ class Owner():
     def getPlayer(self):
         return self.__player
 
+# Stores information about the chess piece itself with no regards to the actual player
 class Piece():
     __owner: Owner
-    __piece_kind: str
-    __hasMoved: bool
-    __hasJumpedTwoFields: bool
-    __id: int
+    __piece_kind: str # Example "Pawn"
+    __hasMoved: bool # Is used to determine if a pawn can jump two fields 
+    __id: int # Only relevant once when drawing the fields
 
     def __init__(self, piece_kind: str, owner: Owner):
         self.__piece_kind = piece_kind
         self.__owner = owner
         self.__hasMoved = False
-        self.__hasJumpedTwoFields = False
         self.__id = None
 
     def getKind(self):
@@ -66,13 +70,13 @@ class Piece():
         self.__id = id
 
 class Field():
-    __name: str #Example A7
-    __coordinates: Vector2D #Top-left corner of the square
-    __dimension: Vector2D #The x and y span originating from the coordinates
-    __piece: Piece #The piece currently on the field, None if there is none
+    __name: str # Example A7
+    __coordinates: Vector2D # Top-left corner of the square
+    __dimension: Vector2D # The x and y span originating from the coordinates
+    __piece: Piece # The piece currently on the field, None if there is none
     __row_position: int
     __column_position: int
-    __board_id: str
+    __board_id: str # Only relevant once when drawing the fields
 
     def __init__(self, coordinates: Vector2D, dimension: Vector2D, name: str, row: int, column: int):
         self.__coordinates = coordinates
@@ -100,6 +104,7 @@ class Field():
     def setName(self, name: str):
         self.__name = name
 
+    # Calculates the center of the field to determine where to draw the piece
     def getCenter(self):
         x_difference = self.__dimension.x - self.__coordinates.x
         y_difference = self.__dimension.y - self.__coordinates.y
@@ -112,13 +117,13 @@ class Field():
         if not(self.__piece == None):
             return self.__piece
         else:
-            return Piece("None", Owner(0, "None"))
+            return Piece("None", Owner(0, "None", False))
 
     def getPlayer(self):
         if not(self.__piece == None):
             return self.__piece.__owner.__player
         else:
-            return Piece("None", Owner(0, "None"))
+            return Piece("None", Owner(0, "None", False))
 
     def hasPiece(self):
         if self.__piece == None:
@@ -147,11 +152,13 @@ class Field():
     def info(self):
         print(self.__name + ": piece=" + self.getPiece().getKind())
 
+
+# Used to store past game states for a move-back-in-time-mechanic
 class MoveRecord():
     __starting_move: Field
     __ending_move: Field
     __turn: int
-    __field_snapshot: list
+    __field_snapshot: list # A copy of the game-board
     __current_player: int
 
     def __init__(self, starting_move: Field, ending_move: Field, turn: int, current_field_state: list, player: int):
@@ -173,10 +180,302 @@ class MoveRecord():
     def info(self):
         print("Starting-Move=" + self.__starting_move.getName() + ";Piece=" + self.__starting_move.getPiece().getKind() + " -> " + "Ending-Move=" + self.__ending_move.getName() + ";Piece=" + self.__ending_move.getPiece().getKind() + " | at turn " + str(self.__turn))
 
+
+class AI():
+    __board: list
+    __search_depth: int
+    __ai_player: int
+    __ai_pieces: list
+    __player_pieces: list
+
+    def __init__(self, board: list, depth: int, player: int):
+        self.__board = board
+        self.__search_depth = depth
+        self.__ai_player = player
+        self.__ai_pieces = getAllPlayerField(player)
+        if player == 1:
+            self.__player_pieces = getAllPlayerField(2)
+        else:
+            self.__player_pieces = getAllPlayerField(1)
+
+    def bestMove(self) -> Vector2D:
+        bHasValidMoves = False
+        while not bHasValidMoves:
+            piece_to_move = None
+            best_move = None
+            evaluation = 0
+            for piece in self.__ai_pieces:
+                ai_possible_moves = getValidMoves(piece)
+                for move in ai_possible_moves:
+                    move_to_check = getFieldByName(move)
+                    if piece.getPiece().getKind() == "Pawn":
+                        if PAWN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = PAWN[move_to_check.getRow()][move_to_check.getColumn()]
+                            piece_to_move = piece
+                            best_move = move_to_check
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                    if piece.getPiece().getKind() == "Knight":
+                        if KNIGHT[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                            evaluation = KNIGHT[move_to_check.getRow()][move_to_check.getColumn()]
+                            piece_to_move = piece
+                            best_move = move_to_check
+                        if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                            if move_to_check.getPiece().getKind() == "Pawn":
+                                if PawnValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Knight":
+                                if KnightValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Bishop":
+                                if BishopValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Rook":
+                                if RookValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "Queen":
+                                if QueenValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+                            elif move_to_check.getPiece().getKind() == "King":
+                                if KingValue >= evaluation:
+                                    piece_to_move = piece
+                                    best_move = move_to_check
+            if piece.getPiece().getKind() == "Bishop":
+                if BISHOP[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                    evaluation = BISHOP[move_to_check.getRow()][move_to_check.getColumn()]
+                    piece_to_move = piece
+                    best_move = move_to_check
+                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                    if move_to_check.getPiece().getKind() == "Pawn":
+                        if PawnValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Knight":
+                        if KnightValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Bishop":
+                        if BishopValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Rook":
+                        if RookValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Queen":
+                        if QueenValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "King":
+                        if KingValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+            if piece.getPiece().getKind() == "Rook":
+                if ROOK[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                    evaluation = ROOK[move_to_check.getRow()][move_to_check.getColumn()]
+                    piece_to_move = piece
+                    best_move = move_to_check
+                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                    if move_to_check.getPiece().getKind() == "Pawn":
+                        if PawnValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Knight":
+                        if KnightValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Bishop":
+                        if BishopValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Rook":
+                        if RookValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Queen":
+                        if QueenValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "King":
+                        if KingValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+            if piece.getPiece().getKind() == "Queen":
+                if QUEEN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                    evaluation = QUEEN[move_to_check.getRow()][move_to_check.getColumn()]
+                    piece_to_move = piece
+                    best_move = move_to_check
+                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                    if move_to_check.getPiece().getKind() == "Pawn":
+                        if PawnValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Knight":
+                        if KnightValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Bishop":
+                        if BishopValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Rook":
+                        if RookValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Queen":
+                        if QueenValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "King":
+                        if KingValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+            if piece.getPiece().getKind() == "King":
+                if KING[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+                    evaluation = KING[move_to_check.getRow()][move_to_check.getColumn()]
+                    piece_to_move = piece
+                    best_move = move_to_check
+                if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+                    if move_to_check.getPiece().getKind() == "Pawn":
+                        if PawnValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Knight":
+                        if KnightValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Bishop":
+                        if BishopValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Rook":
+                        if RookValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "Queen":
+                        if QueenValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+                    elif move_to_check.getPiece().getKind() == "King":
+                        if KingValue >= evaluation:
+                            piece_to_move = piece
+                            best_move = move_to_check
+            if best_move:
+                complete_move = Vector2D(piece_to_move, best_move)
+                return complete_move
+
+
+
+
+PawnValue = 10
+KnightValue = 30
+BishopValue = 30
+RookValue = 50
+QueenValue = 90
+KingValue = 100
+
+# AI Piece Table
+PAWN = [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [5, 10, 10, -20, -20, 10, 10, 5],
+    [5, -5, -10, 0, 0, -10, -5, 5],
+    [0, 0, 0, 20, 20, 0, 0, 0],
+    [5, 5, 10, 25, 25, 10, 5, 5],
+    [10, 10, 20, 30, 30, 20, 10, 10],
+    [50, 50, 50, 50, 50, 50, 50, 50],
+    [0, 0, 0, 0, 0, 0, 0, 0]
+]
+
+KNIGHT = [
+    [-50, -40, -30, -30, -30, -30, -40, -50],
+    [-40, -20, 0, 0, 0, 0, -20, -40],
+    [-30, 0, 10, 15, 15, 10, 0, -30],
+    [-30, 5, 15, 20, 20, 15, 5, -30],
+    [-30, 0, 15, 20, 20, 15, 0, -30],
+    [-30, 5, 10, 15, 15, 10, 5, -30],
+    [-40, -20, 0, 5, 5, 0, -20, -40],
+    [-50, -40, -30, -30, -30, -30, -40, -50]
+]
+
+BISHOP = [
+    [-20, -10, -10, -10, -10, -10, -10, -20],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 0, 5, 10, 10, 5, 0, -10],
+    [-10, 5, 5, 10, 10, 5, 5, -10],
+    [-10, 0, 10, 10, 10, 10, 0, -10],
+    [-10, 10, 10, 10, 10, 10, 10, -10],
+    [-10, 5, 0, 0, 0, 0, 5, -10],
+    [-20, -10, -10, -10, -10, -10, -10, -20]
+]
+
+ROOK = [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [5, 10, 10, 10, 10, 10, 10, 5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [0, 0, 0, 5, 5, 0, 0, 0]
+]
+
+QUEEN = [
+    [-20, -10, -10, -5, -5, -10, -10, -20,],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [10, 0, 5, 5, 5, 5, 0, -10],
+    [-5, 0, 5, 5, 5, 5, 0, -5],
+    [0, 0, 5, 5, 5, 5, 0, -5],
+    [-10, 5, 5, 5, 5, 5, 0, -10],
+    [-10, 0, 5, 0, 0, 0, 0, -10],
+    [-20, -10, -10, -5, -5, -10, -10, -20]
+]
+
+KING = [
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-20, -30, -30, -40, -40, -30, -30, -20],
+    [-10, -20, -20, -20, -20, -20, -20, -10],
+    [20, 20, 0, 0, 0, 0, 20, 20],
+    [20, 30, 10, 0, 0, 10, 30, 20]
+]
+
+
+# Creates the main window
 root = Tk()
 root.minsize(1000, 800)
 root.title("Chess by Tobias Seipenbusch")
 
+# Configures the spacing and priority of spacing for the individual labels and buttons
 root.columnconfigure(0, weight=0)
 root.columnconfigure(1, weight=5)
 root.columnconfigure(2, weight=1)
@@ -189,7 +488,9 @@ root.rowconfigure(0, weight=0)
 root.rowconfigure(1, weight=0)
 root.rowconfigure(2, weight=7)
 
-boardFields = []
+
+# Globals used throughout the program (should have put them into a GameState class or something)
+boardFields = [] # The board itself
 board_id = []
 hasPieceSelected = False
 possible_moves = []
@@ -210,6 +511,8 @@ castle = False
 player_1_king_check = False
 player_2_king_check = False
 
+
+# Fonts and colors
 font_1 = ("Arial", 16)
 field_letters = ("Arial", 12, "bold")
 listbox_font = ("Arial", 12)
@@ -226,6 +529,11 @@ fg_color_if_check_false = "#302840"
 player_1_color = "White"
 player_2_color = "Black"
 current_player = 1
+
+is_player_1_AI = False
+is_player_2_AI = True
+player_1_AI = None
+player_2_AI = None
 
 lettering_bib = {
     0: "A",
@@ -249,6 +557,8 @@ numbering_bib = {
     7: 1,
 }
 
+
+# The widgets
 root.configure(background=window_color)
 chessboard = Canvas(root, background=chessboard_color, borderwidth=0, highlightthickness=3, highlightbackground=light_field_color)
 chessboard_displacement = 60
@@ -281,6 +591,8 @@ menu_button.grid(row=0, column=0, sticky=W)
 def getWindowDimension():
     return Vector2D(root.winfo_width(), root.winfo_height())
 
+
+# Is called when the window changes size to keep everything adjusted
 def drawWindow(event=None):
     adjustBoardFields(chessboard_displacement)
     drawChessboard(chessboard_displacement)
@@ -469,6 +781,14 @@ def initializeBoard():
             square_name = getPlayingFieldName(row, column)
             boardFields[row].append(Field(Vector2D(0, 0), Vector2D(0, 0), square_name, row, column))
     initializePieces()
+    if isAI(1):
+        global player_1_AI
+        player_1_AI = AI(boardFields, 2, 1)
+        print("Player 1 AI has been created")
+    if isAI(2):
+        global player_2_AI
+        player_2_AI = AI(boardFields, 2, 2)
+        print("Player 2 AI has been created")
          
 def adjustBoardFields(displacement: int):
     adjustBoardFieldsPosition(displacement)
@@ -504,59 +824,115 @@ def initializePieces():
 
 def initializePawns():
     # Player 1 Pawns
-    getFieldByName("A2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("B2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("C2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("D2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("E2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("F2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("G2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
-    getFieldByName("H2").setPiece(Piece("Pawn", Owner(1, player_1_color)))
+    if is_player_1_AI:
+        getFieldByName("A2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("B2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("C2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("D2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("E2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("F2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("G2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+        getFieldByName("H2").setPiece(Piece("Pawn", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("A2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("B2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("C2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("D2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("E2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("F2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("G2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
+        getFieldByName("H2").setPiece(Piece("Pawn", Owner(1, player_1_color, False)))
     # Player 2 Pawns
-    getFieldByName("A7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("B7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("C7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("D7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("E7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("F7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("G7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
-    getFieldByName("H7").setPiece(Piece("Pawn", Owner(2, player_2_color)))
+    if is_player_2_AI:
+        getFieldByName("A7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("B7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("C7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("D7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("E7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("F7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("G7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+        getFieldByName("H7").setPiece(Piece("Pawn", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("A7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("B7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("C7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("D7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("E7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("F7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("G7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
+        getFieldByName("H7").setPiece(Piece("Pawn", Owner(2, player_2_color, False)))
 
 def initializeRooks():
     # Player 1 Rooks
-    getFieldByName("A1").setPiece(Piece("Rook", Owner(1, player_1_color)))
-    getFieldByName("H1").setPiece(Piece("Rook", Owner(1, player_1_color)))
+    if is_player_1_AI:
+        getFieldByName("A1").setPiece(Piece("Rook", Owner(1, player_1_color, True)))
+        getFieldByName("H1").setPiece(Piece("Rook", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("A1").setPiece(Piece("Rook", Owner(1, player_1_color, False)))
+        getFieldByName("H1").setPiece(Piece("Rook", Owner(1, player_1_color, False)))
     # Player 2 Rooks
-    getFieldByName("A8").setPiece(Piece("Rook", Owner(2, player_2_color)))
-    getFieldByName("H8").setPiece(Piece("Rook", Owner(2, player_2_color)))
+    if is_player_2_AI:
+        getFieldByName("A8").setPiece(Piece("Rook", Owner(2, player_2_color, True)))
+        getFieldByName("H8").setPiece(Piece("Rook", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("A8").setPiece(Piece("Rook", Owner(2, player_2_color, False)))
+        getFieldByName("H8").setPiece(Piece("Rook", Owner(2, player_2_color, False)))
 
 def initializeKnights():
     # Player 1 Knights
-    getFieldByName("B1").setPiece(Piece("Knight", Owner(1, player_1_color)))
-    getFieldByName("G1").setPiece(Piece("Knight", Owner(1, player_1_color)))
+    if is_player_1_AI:
+        getFieldByName("B1").setPiece(Piece("Knight", Owner(1, player_1_color, True)))
+        getFieldByName("G1").setPiece(Piece("Knight", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("B1").setPiece(Piece("Knight", Owner(1, player_1_color, False)))
+        getFieldByName("G1").setPiece(Piece("Knight", Owner(1, player_1_color, False)))
     # Player 2 Knights
-    getFieldByName("B8").setPiece(Piece("Knight", Owner(2, player_2_color)))
-    getFieldByName("G8").setPiece(Piece("Knight", Owner(2, player_2_color)))
+    if is_player_2_AI:
+        getFieldByName("B8").setPiece(Piece("Knight", Owner(2, player_2_color, True)))
+        getFieldByName("G8").setPiece(Piece("Knight", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("B8").setPiece(Piece("Knight", Owner(2, player_2_color, False)))
+        getFieldByName("G8").setPiece(Piece("Knight", Owner(2, player_2_color, False)))
 
 def initializeBishops():
     # Player 1 Bishops
-    getFieldByName("C1").setPiece(Piece("Bishop", Owner(1, player_1_color)))
-    getFieldByName("F1").setPiece(Piece("Bishop", Owner(1, player_1_color)))
+    if is_player_1_AI:
+        getFieldByName("C1").setPiece(Piece("Bishop", Owner(1, player_1_color, True)))
+        getFieldByName("F1").setPiece(Piece("Bishop", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("C1").setPiece(Piece("Bishop", Owner(1, player_1_color, False)))
+        getFieldByName("F1").setPiece(Piece("Bishop", Owner(1, player_1_color, False)))
     # Player 2 Bishops
-    getFieldByName("C8").setPiece(Piece("Bishop", Owner(2, player_2_color)))
-    getFieldByName("F8").setPiece(Piece("Bishop", Owner(2, player_2_color)))
+    if is_player_2_AI:
+        getFieldByName("C8").setPiece(Piece("Bishop", Owner(2, player_2_color, True)))
+        getFieldByName("F8").setPiece(Piece("Bishop", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("C8").setPiece(Piece("Bishop", Owner(2, player_2_color, False)))
+        getFieldByName("F8").setPiece(Piece("Bishop", Owner(2, player_2_color, False)))
 
 def initializeQueens():
     # Player 1 Queen
-    getFieldByName("D1").setPiece(Piece("Queen", Owner(1, player_1_color)))
+    if is_player_1_AI:
+        getFieldByName("D1").setPiece(Piece("Queen", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("D1").setPiece(Piece("Queen", Owner(1, player_1_color, False)))
     # Player 2 Queen
-    getFieldByName("E8").setPiece(Piece("Queen", Owner(2, player_2_color)))
+    if is_player_2_AI:
+        getFieldByName("E8").setPiece(Piece("Queen", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("E8").setPiece(Piece("Queen", Owner(2, player_2_color, False)))
 
 def initializeKings():
     # Player 1 King
-    getFieldByName("E1").setPiece(Piece("King", Owner(1, player_1_color)))
-    # Player 2 King
-    getFieldByName("D8").setPiece(Piece("King", Owner(2, player_2_color)))
+    if is_player_1_AI:
+        getFieldByName("E1").setPiece(Piece("King", Owner(1, player_1_color, True)))
+    else:
+        getFieldByName("E1").setPiece(Piece("King", Owner(1, player_1_color, False)))
+    # Player 2 King+
+    if is_player_2_AI:
+        getFieldByName("D8").setPiece(Piece("King", Owner(2, player_2_color, True)))
+    else:
+        getFieldByName("D8").setPiece(Piece("King", Owner(2, player_2_color, False)))
 
 # Return the combination of letter+number in order to assisn a chesslike notation to each Field() in boardFields[] inizialized by initializeBoardFields()
 def getPlayingFieldName(row: int, column: int):
@@ -642,41 +1018,58 @@ def isInbetween(n: float, x: float, y: float):
             return False
 
 def move(event):
-    field_clicked = getFieldClicked(event)
-    global hasPieceSelected
-    global possible_moves
-    isOutside_of_possible_moves = False
+    if isAI(current_player):
+        time.sleep(0.25)
+        if current_player == 1:
+            ai_move = player_1_AI.bestMove()
+            movePiece(ai_move.x, ai_move.y)
+        elif current_player == 2:
+            ai_move = player_2_AI.bestMove()
+            movePiece(ai_move.x, ai_move.y)
+        return
+    else:
+        field_clicked = getFieldClicked(event)
+        global hasPieceSelected
+        global possible_moves
+        isOutside_of_possible_moves = False
 
-    # Checkt ob ein Feld geklickt wurde
-    if not(field_clicked == None):
-        # Checks if the field the user clicked in has a piece and if the user has already selected a piece
-        if field_clicked.hasPiece() and hasPieceSelected == False and current_player == field_clicked.getPiece().getOwner().getPlayer():
-            if hasValidMoves(field_clicked):
-                click_history.append(field_clicked)
-                possible_moves = getValidMoves(field_clicked)
-                if possible_moves:
-                    print("Possible Moves: " + str(possible_moves))
-                    highlightMoves(possible_moves, True)
-                    hasPieceSelected = True
-                    return
+        # Checkt ob ein Feld geklickt wurde
+        if not (field_clicked == None):
+            # Checks if the field the user clicked in has a piece and if the user has already selected a piece
+            if field_clicked.hasPiece() and hasPieceSelected == False and current_player == field_clicked.getPiece().getOwner().getPlayer():
+                if hasValidMoves(field_clicked):
+                    click_history.append(field_clicked)
+                    possible_moves = getValidMoves(field_clicked)
+                    if possible_moves:
+                        print("Possible Moves: " + str(possible_moves))
+                        highlightMoves(possible_moves, True)
+                        hasPieceSelected = True
+                        return
 
-        for possible_field in range(0, len(possible_moves)):
-            if field_clicked.getName() == possible_moves[possible_field]:
-                click_history.append(field_clicked)
-                movePiece(click_history[len(click_history)-2], possible_moves[possible_field])
-                possible_moves.clear()
-                hasPieceSelected = False
-                return
-            else:
-                isOutside_of_possible_moves = True
-
-        if hasPieceSelected == True and isOutside_of_possible_moves == True:
-            # Goes through all possible moves and checks if the current click is one of the possible moves, if not, deselect
-            for name in possible_moves:
-                if not(field_clicked.getName() == name):
-                    highlightMoves(possible_moves, False)
+            for possible_field in range(0, len(possible_moves)):
+                if field_clicked.getName() == possible_moves[possible_field]:
+                    click_history.append(field_clicked)
+                    movePiece(click_history[len(click_history) - 2], possible_moves[possible_field])
+                    possible_moves.clear()
                     hasPieceSelected = False
-                    possible_moves = []
+                else:
+                    isOutside_of_possible_moves = True
+
+            if hasPieceSelected == True and isOutside_of_possible_moves == True:
+                # Goes through all possible moves and checks if the current click is one of the possible moves, if not, deselect
+                for name in possible_moves:
+                    if not (field_clicked.getName() == name):
+                        highlightMoves(possible_moves, False)
+                        hasPieceSelected = False
+                        possible_moves = []
+
+def isAI(player: int):
+    if player == 1 and is_player_1_AI:
+        return True
+    elif player == 2 and is_player_2_AI:
+        return True
+    else:
+        return False
 
 def hasValidMoves(origin_field: Field) -> bool:
     piece = origin_field.getPiece()
@@ -696,6 +1089,8 @@ def hasValidMoves(origin_field: Field) -> bool:
     if piece.getKind() == "King":
         return True
 
+
+
 def hasValidPawnMoves(origin_field: Field) -> bool:
     player = origin_field.getPiece().getOwner().getPlayer()
     piece_row = origin_field.getRow()
@@ -709,6 +1104,8 @@ def hasValidPawnMoves(origin_field: Field) -> bool:
         if piece_row == 0:
             return False
         return True
+
+
 
 def getValidMoves(origin_field: Field) -> list:
     if debug_mode == True:
@@ -743,6 +1140,8 @@ def getValidMoves(origin_field: Field) -> list:
         return getValidQueenMoves(origin_field)
     if piece_kind == "King":
         return getValidKingMoves(origin_field)
+
+
 
 def checkIfKingCheck(field_of_king_to_check: Field) -> bool:
     if field_of_king_to_check.getPiece().getOwner().getPlayer() == 1:
@@ -1171,7 +1570,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
         target_field.setPiece(origin_field.getPiece())
         target_field.getPiece().setHasMoved(True)
 
-    if tracked_pawn_fields_2 and origin_field.getPiece().getOwner().getPlayer() == current_player:
+    if tracked_pawn_fields_2 and origin_field.getPiece().getOwner().getPlayer() == current_player and origin_field.getPiece().getKind() == "Pawn":
         for field_name in tracked_pawn_fields_2:
             print("Checking field " + field_name)
             print("Checking if Pawn on " + boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].getName())
@@ -1187,7 +1586,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
                 print("2-else: removed")
                 tracked_pawn_fields_2.remove(field_name)
     
-    if tracked_pawn_fields_1 and origin_field.getPiece().getOwner().getPlayer() == current_player:
+    if tracked_pawn_fields_1 and origin_field.getPiece().getOwner().getPlayer() == current_player and origin_field.getPiece().getKind() == "Pawn":
         for field_name in tracked_pawn_fields_1:
             print("Checking field " + field_name)
             print("Checking if Pawn on " + boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].getName())
@@ -1274,9 +1673,8 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
                 gameWon(1)
 
     #addMoveHistory(origin_field, origin_piece_kind, target_field)
-    nextPlayer()
-    
     drawWindow()
+    nextPlayer()
 
 
 def promotePawn(origin_field: Field, target_field: Field):
@@ -1336,6 +1734,8 @@ def nextPlayer():
         player_2_field.configure(background=dark_field_color, foreground=white_color_substitute)
     turn += 1
     print("Current turn: " + str(turn))
+    if isAI(current_player):
+        move(None)
 
 def pieceCaptured(owner_field: Field, captured_field: Field):
     owner = owner_field.getPiece().getOwner().getPlayer()
