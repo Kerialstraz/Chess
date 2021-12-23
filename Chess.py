@@ -3,8 +3,9 @@ import time
 from tkinter import *
 from dataclasses import dataclass, field, is_dataclass
 from typing import *
-from copy import deepcopy
+import copy
 from tkinter import messagebox
+import math
 
 # Used to clump together number-pairs
 class Vector2D():
@@ -180,6 +181,23 @@ class MoveRecord():
     def info(self):
         print("Starting-Move=" + self.__starting_move.getName() + ";Piece=" + self.__starting_move.getPiece().getKind() + " -> " + "Ending-Move=" + self.__ending_move.getName() + ";Piece=" + self.__ending_move.getPiece().getKind() + " | at turn " + str(self.__turn))
 
+class Move():
+    __piece: Piece
+    __origin_field: Field
+    __field_to_move_to: Field
+    __evaluation: int
+
+    def __init__(self, origin_field: Field, piece: Piece, field_to_move_to: Field, evaluation: int):
+        self.__piece = piece
+        self.__origin_field = origin_field
+        self.__field_to_move_to = field_to_move_to
+        self.__evaluation = evaluation
+
+    def getMoveField(self):
+        return self.__field_to_move_to
+
+    def getOriginField(self):
+        return self.__origin_field
 
 class AI():
     __board: list
@@ -187,196 +205,206 @@ class AI():
     __ai_player: int
     __ai_pieces: list
     __player_pieces: list
+    __color: str
 
-    def __init__(self, board: list, depth: int, player: int):
+    def __init__(self, board: list, depth: int, player: int, color: str):
         self.__board = board
         self.__search_depth = depth
         self.__ai_player = player
         self.__ai_pieces = getAllPlayerField(player)
+        self.__color = color
         if player == 1:
             self.__player_pieces = getAllPlayerField(2)
         else:
             self.__player_pieces = getAllPlayerField(1)
 
-    def bestMove(self) -> Vector2D:
-        bHasValidMoves = False
-        while not bHasValidMoves:
-            evaluation = 0
-            piece_array = []
-            counter = 0
 
-            for piece in self.__ai_pieces: # ai_pieces has a collection of each field that contains the pieces that belong to the ai
-                ai_possible_moves = getValidMoves(piece) # gets all valid moves for a piece as a list containing the possible fields as strings
-                piece_array.append(Vector2D(piece, []))
-                if ai_possible_moves:
-                    for move in ai_possible_moves:
-                        move_to_check = getFieldByName(move) # since ai_possible_moves is a list of strings, I have to get the Field object by searching for it with its name
-                        if piece.getPiece().getKind() == "Pawn":
-                            if PAWN[move_to_check.getRow()][move_to_check.getColumn()] >= evaluation: # PAWN is the pawn_value_table, I check the row/column of the move with the same position in the
-                                                                                                    # table and look for the move with the highest evaluation
-                                evaluation = PAWN[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif PAWN[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer(): # Checks if he can take a piece
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
-                        if piece.getPiece().getKind() == "Knight":
-                            if KNIGHT[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                                evaluation = KNIGHT[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif KNIGHT[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                        if piece.getPiece().getKind() == "Bishop":
-                            if BISHOP[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                                evaluation = BISHOP[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif BISHOP[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                        if piece.getPiece().getKind() == "Rook":
-                            if ROOK[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                                evaluation = ROOK[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif ROOK[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                        if piece.getPiece().getKind() == "Queen":
-                            if QUEEN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                                evaluation = QUEEN[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif QUEEN[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                        if piece.getPiece().getKind() == "King":
-                            if KING[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
-                                evaluation = KING[move_to_check.getRow()][move_to_check.getColumn()]
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            elif KING[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
-                                piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                            if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
-                                if move_to_check.getPiece().getKind() == "Pawn":
-                                    if PawnValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Knight":
-                                    if KnightValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Bishop":
-                                    if BishopValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Rook":
-                                    if RookValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "Queen":
-                                    if QueenValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                                elif move_to_check.getPiece().getKind() == "King":
-                                    if KingValue >= evaluation:
-                                        piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
-                counter = counter + 1
-            total_evaluation = 0
-            for piece_pair in piece_array: # Goes through each Vector2D(piece, Vector2D(move, eva))
-                for move in piece_pair.y: # Goes through each move, eva pair to search for the highest evaluation out of all the moves
-                    if move.y >= total_evaluation:
-                        total_evaluation = move.y
-            potential_moves = []
-            for piece_pair in piece_array: # Goes through each Vector2D(piece, Vector2D(move, eva)) again, now with the maximum evaluation found
-                for move in piece_pair.y:
-                    if move.y == total_evaluation: # Adds each move with the maximum evaluation found into a list
-                        potential_moves.append(piece_pair)
+    def getColor(self):
+        return self.__color
 
-            chosen_pair = random.choice(potential_moves) # Selects a random Vector2D(piece, Vector2D(move, eva))
-            complete_move = Vector2D(chosen_pair.x, chosen_pair.y[0].x)
-            return complete_move
+
+
+
+
+    # def bestMove(self) -> Vector2D:
+    #     bHasValidMoves = False
+    #     while not bHasValidMoves:
+    #         evaluation = 0
+    #         piece_array = []
+    #         counter = 0
+    #
+    #         for piece in self.__ai_pieces: # ai_pieces has a collection of each field that contains the pieces that belong to the ai
+    #             ai_possible_moves = getValidMoves(piece) # gets all valid moves for a piece as a list containing the possible fields as strings
+    #             piece_array.append(Vector2D(piece, []))
+    #             if ai_possible_moves:
+    #                 for move in ai_possible_moves:
+    #                     move_to_check = getFieldByName(move) # since ai_possible_moves is a list of strings, I have to get the Field object by searching for it with its name
+    #                     if piece.getPiece().getKind() == "Pawn":
+    #                         if PAWN[move_to_check.getRow()][move_to_check.getColumn()] >= evaluation: # PAWN is the pawn_value_table, I check the row/column of the move with the same position in the
+    #                                                                                                 # table and look for the move with the highest evaluation
+    #                             evaluation = PAWN[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif PAWN[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer(): # Checks if he can take a piece
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y = [Vector2D(move_to_check, evaluation)]
+    #                     if piece.getPiece().getKind() == "Knight":
+    #                         if KNIGHT[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+    #                             evaluation = KNIGHT[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif KNIGHT[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                     if piece.getPiece().getKind() == "Bishop":
+    #                         if BISHOP[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+    #                             evaluation = BISHOP[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif BISHOP[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                     if piece.getPiece().getKind() == "Rook":
+    #                         if ROOK[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+    #                             evaluation = ROOK[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif ROOK[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                     if piece.getPiece().getKind() == "Queen":
+    #                         if QUEEN[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+    #                             evaluation = QUEEN[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif QUEEN[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                     if piece.getPiece().getKind() == "King":
+    #                         if KING[move_to_check.getRow()][move_to_check.getColumn()] > evaluation:
+    #                             evaluation = KING[move_to_check.getRow()][move_to_check.getColumn()]
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         elif KING[move_to_check.getRow()][move_to_check.getColumn()] == evaluation:
+    #                             piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                         if move_to_check.getPiece().getOwner().getPlayer() is not piece.getPiece().getOwner().getPlayer():
+    #                             if move_to_check.getPiece().getKind() == "Pawn":
+    #                                 if PawnValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Knight":
+    #                                 if KnightValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Bishop":
+    #                                 if BishopValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Rook":
+    #                                 if RookValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "Queen":
+    #                                 if QueenValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #                             elif move_to_check.getPiece().getKind() == "King":
+    #                                 if KingValue >= evaluation:
+    #                                     piece_array[counter].y.append(Vector2D(move_to_check, evaluation))
+    #             counter = counter + 1
+    #         total_evaluation = 0
+    #         for piece_pair in piece_array: # Goes through each Vector2D(piece, Vector2D(move, eva))
+    #             for move in piece_pair.y: # Goes through each move, eva pair to search for the highest evaluation out of all the moves
+    #                 if move.y >= total_evaluation:
+    #                     total_evaluation = move.y
+    #         potential_moves = []
+    #         for piece_pair in piece_array: # Goes through each Vector2D(piece, Vector2D(move, eva)) again, now with the maximum evaluation found
+    #             for move in piece_pair.y:
+    #                 if move.y == total_evaluation: # Adds each move with the maximum evaluation found into a list
+    #                     potential_moves.append(piece_pair)
+    #
+    #         chosen_pair = random.choice(potential_moves) # Selects a random Vector2D(piece, Vector2D(move, eva))
+    #         complete_move = Vector2D(chosen_pair.x, chosen_pair.y[0].x)
+    #         return complete_move
 
 
 
@@ -491,6 +519,8 @@ isBoard_initialized = False
 tracked_pawn_fields_1 = []
 tracked_pawn_fields_2 = []
 
+piece_capture_history = []
+
 debug_mode = False
 
 castle = False
@@ -502,8 +532,8 @@ player_2_king_check = False
 font_1 = ("Arial", 16)
 field_letters = ("Arial", 12, "bold")
 listbox_font = ("Arial", 12)
-white_color_substitute = "#f5f5ff"
 chessboard_color = "#060c0d"
+white_color_substitute = "#f5f5ff"
 window_color = "#001314"
 light_field_color = "#00eeff"
 dark_field_color = "#183638"
@@ -520,6 +550,8 @@ is_player_1_AI = False
 is_player_2_AI = True
 player_1_AI = None
 player_2_AI = None
+
+AI_piece_capture = [False]
 
 lettering_bib = {
     0: "A",
@@ -550,8 +582,10 @@ chessboard = Canvas(root, background=chessboard_color, borderwidth=0, highlightt
 chessboard_displacement = 60
 player_1_field = Label(root, text="Player 1", anchor=W, background="#EBEBEB", font=font_1, height=0)
 player_2_field = Label(root, text="Player 2", anchor=W, background="#EBEBEB", font=font_1, height=0)
-player_1_timer_field = Label(root, text="2:00", background=window_color, font=font_1, fg=light_field_color, height=0)
-player_2_timer_field = Label(root, text="2:00", background=window_color, font=font_1, fg=light_field_color, height=0)
+if is_player_1_AI:
+    player_1_thinking_field = Label(root, text="Thinking...", background=window_color, font=font_1, fg=fg_color_if_check_false, height=0)
+if is_player_2_AI:
+    player_2_thinking_field = Label(root, text="Thinking...", background=window_color, font=font_1, fg=fg_color_if_check_false, height=0)
 player_1_check_field = Label(root, text="Check", background=chessboard_color, font=font_1, height=0, foreground=fg_color_if_check_false)
 player_2_check_field = Label(root, text="Check", background=chessboard_color, font=font_1, height=0, foreground=fg_color_if_check_false)
 move_history_label = Label(root, text="History", anchor=W, background=window_color, foreground=light_field_color,font=font_1, height=0)
@@ -565,8 +599,10 @@ player_color_menu.config()
 chessboard.grid(row=2, column=1, columnspan=6, sticky=NSEW)
 player_1_field.grid(row=1, column=1, sticky=NSEW)
 player_2_field.grid(row=1, column=4, sticky=NSEW)
-player_1_timer_field.grid(row=1, column=3, sticky=NSEW)
-player_2_timer_field.grid(row=1, column=6, sticky=NSEW)
+if is_player_1_AI:
+    player_1_thinking_field.grid(row=1, column=3, sticky=NSEW)
+if is_player_2_AI:
+    player_2_thinking_field.grid(row=1, column=6, sticky=NSEW)
 player_1_check_field.grid(row=1, column=2, sticky=NSEW)
 player_2_check_field.grid(row=1, column=5, sticky=NSEW)
 move_history_label.grid(row=1, column=0, sticky=NSEW)
@@ -583,6 +619,7 @@ def drawWindow(event=None):
     adjustBoardFields(chessboard_displacement)
     drawChessboard(chessboard_displacement)
     drawPieces()
+    root.update()
 
 # draws the lines of the chessboard on the canvas to act as a playing field, displacement is the distance between canvas edge and playing field
 def drawChessboard(displacement: int):
@@ -629,7 +666,6 @@ def drawPieces():
     for row in range(0, len(boardFields)):
         for column in range(0, len(boardFields[row])):
             drawPiece(boardFields[row][column], 1)
-
 def drawPiece(field: Field, dimension: float):
     if field.getPiece() == None:
         return
@@ -769,11 +805,11 @@ def initializeBoard():
     initializePieces()
     if isAI(1):
         global player_1_AI
-        player_1_AI = AI(boardFields, 2, 1)
+        player_1_AI = AI(boardFields, 2, 1, player_1_color)
         print("Player 1 AI has been created")
     if isAI(2):
         global player_2_AI
-        player_2_AI = AI(boardFields, 2, 2)
+        player_2_AI = AI(boardFields, 2, 2, player_2_color)
         print("Player 2 AI has been created")
          
 def adjustBoardFields(displacement: int):
@@ -979,6 +1015,14 @@ def getAllPlayerField(player: int) -> list:
                 all_fields.append(boardFields[row][column])
     return all_fields
 
+def getFieldsByColor(color: str) -> list:
+    fields = []
+    for row in range(0, len(boardFields)):
+        for column in range(0, len(boardFields[row])):
+            if boardFields[row][column].getPiece().getOwner().getColor() == color:
+                fields.append(boardFields[row][column])
+    return fields
+
 
 # Determines the playfield square that got clicked on
 def getFieldClicked(click_coords) -> Field:
@@ -1007,11 +1051,13 @@ def move(event):
     if isAI(current_player):
         time.sleep(0.25)
         if current_player == 1:
-            ai_move = player_1_AI.bestMove()
-            movePiece(ai_move.x, ai_move.y.getName())
+            ai_move = minimax(0, 0, True, player_1_AI.getColor(), 3, 0)
+            movePiece(ai_move[0].getOriginField(), ai_move[0].getMoveField().getName())
+            nextPlayer()
         elif current_player == 2:
-            ai_move = player_2_AI.bestMove()
-            movePiece(ai_move.x, ai_move.y.getName())
+            ai_move = minimax(0, 0, True, player_2_AI.getColor(), 3 , 0)
+            movePiece(ai_move[0].getOriginField(), ai_move[0].getMoveField().getName())
+            nextPlayer()
         return
     else:
         field_clicked = getFieldClicked(event)
@@ -1032,14 +1078,16 @@ def move(event):
                         hasPieceSelected = True
                         return
 
-            for possible_field in range(0, len(possible_moves)):
-                if field_clicked.getName() == possible_moves[possible_field]:
-                    click_history.append(field_clicked)
-                    movePiece(click_history[len(click_history) - 2], possible_moves[possible_field])
-                    possible_moves.clear()
-                    hasPieceSelected = False
-                else:
-                    isOutside_of_possible_moves = True
+            if possible_moves:
+                for possible_field in range(0, len(possible_moves)):
+                    if field_clicked.getName() == possible_moves[possible_field]:
+                        click_history.append(field_clicked)
+                        movePiece(click_history[len(click_history) - 2], possible_moves[possible_field])
+                        possible_moves.clear()
+                        hasPieceSelected = False
+                        nextPlayer()
+                    else:
+                        isOutside_of_possible_moves = True
 
             if hasPieceSelected == True and isOutside_of_possible_moves == True:
                 # Goes through all possible moves and checks if the current click is one of the possible moves, if not, deselect
@@ -1090,6 +1138,70 @@ def hasValidPawnMoves(origin_field: Field) -> bool:
         if piece_row == 0:
             return False
         return True
+
+
+
+def minimax(alpha: int, beta: int, maximizing_player: bool, maximizing_color: str, depth: int, counter):
+    if depth <= 0:
+        return None, evaluate(maximizing_color)
+
+    if maximizing_player:
+        moves = getAllMovesByColor(maximizing_color)
+        best_move = random.choice(moves)
+    else:
+        if maximizing_color == "Black":
+            moves = getAllMovesByColor("White")
+            best_move = random.choice(moves)
+        else:
+            moves = getAllMovesByColor("Black")
+            best_move = random.choice(moves)
+
+    global tracked_pawn_fields_1
+    global tracked_pawn_fields_2
+    global AI_piece_capture
+    global boardFields
+    global piece_capture_history
+
+    iterations_counter = counter
+
+    if maximizing_player:
+        max_eval = -math.inf
+        for viable_move in moves:
+            iterations_counter = iterations_counter + 1
+            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), True)
+            result = minimax(alpha, beta, False, maximizing_color, depth-1, iterations_counter)[1]
+            current_evaluation = result[0]
+            iterations_counter = result[1]
+            tracked_pawn_fields_1 = []
+            tracked_pawn_fields_2 = []
+            movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), True)
+            if AI_piece_capture[-1 * iterations_counter] and piece_capture_history:
+                boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()] = piece_capture_history[-1][0].getMoveField()
+                boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].setPiece(piece_capture_history[-1][1])
+                AI_piece_capture[-1 * iterations_counter] = False
+            if current_evaluation > max_eval:
+                max_eval = current_evaluation
+                best_move = viable_move
+        return [best_move, [int(max_eval), iterations_counter]]
+    else:
+        min_eval = math.inf
+        for viable_move in moves:
+            iterations_counter + 1
+            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), True)
+            result = minimax(alpha, beta, True, maximizing_color, depth-1, iterations_counter)[1]
+            current_evaluation = result[0]
+            iterations_counter = result[1]
+            tracked_pawn_fields_1 = []
+            tracked_pawn_fields_2 = []
+            movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), True)
+            if AI_piece_capture[-1 * iterations_counter] and piece_capture_history:
+                boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()] = piece_capture_history[-1][0].getMoveField()
+                boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].setPiece(piece_capture_history[-1][1])
+                AI_piece_capture[-1 * iterations_counter] = False
+            if current_evaluation < min_eval:
+                min_eval = current_evaluation
+                best_move = viable_move
+        return [best_move, [int(min_eval), iterations_counter]]
 
 
 
@@ -1190,7 +1302,62 @@ def is_surrounded_by_allies(field_to_check: Field) -> bool:
     return True
 
 
-        
+def evaluate(maximizing_color: str) -> int:
+    print("Evaluation the board. Maximizing color: " + maximizing_color)
+    if maximizing_color == "White":
+        calculated_score = calculateBoardScore("White") - calculateBoardScore("Black")
+        print("The calculated board score for " + maximizing_color + " is " + str(calculated_score))
+        return calculated_score
+    else:
+        calculated_score = calculateBoardScore("Black") - calculateBoardScore("White")
+        print("The calculated board score for " + maximizing_color + " is " + str(calculated_score))
+        return calculated_score
+
+
+def calculateBoardScore(color: str) -> int:
+    print("Calculating board score for " + color + "...")
+    fields_to_sum = getFieldsByColor(color)
+    total_sum = 0
+    for field in fields_to_sum:
+        if field.getPiece().getKind() == "Pawn":
+            total_sum = total_sum + PawnValue
+        elif field.getPiece().getKind() == "Knight":
+            total_sum = total_sum + KnightValue
+        elif field.getPiece().getKind() == "Rook":
+            total_sum = total_sum + RookValue
+        elif field.getPiece().getKind() == "Bishop":
+            total_sum = total_sum + BishopValue
+        elif field.getPiece().getKind() == "Queen":
+            total_sum = total_sum + QueenValue
+        elif field.getPiece().getKind() == "King":
+            total_sum = total_sum + KingValue
+    print("Calculated board score for " + color + " is " + str(total_sum))
+    return total_sum
+
+def getAllMovesOnBoard():
+    moves = []
+    for row in range(0, len(boardFields)):
+        for column in range(0, len(boardFields[row])):
+            if boardFields[row][column].hasPiece():
+                piece_moves = getValidMoves(boardFields[row][column])
+                if piece_moves:
+                    for move in piece_moves:
+                        moves.append(transformValidMovesIntoMoveClass(boardFields[row][column], getFieldByName(move)))
+    return moves
+
+def getAllMovesByColor(color: str):
+    moves = []
+    for row in range(0, len(boardFields)):
+        for column in range(0, len(boardFields[row])):
+            if boardFields[row][column].hasPiece() and boardFields[row][column].getPiece().getOwner().getColor() == color:
+                piece_moves = getValidMoves(boardFields[row][column])
+                if piece_moves:
+                    for move in piece_moves:
+                        moves.append(transformValidMovesIntoMoveClass(boardFields[row][column], getFieldByName(move)))
+    return moves
+
+def transformValidMovesIntoMoveClass(origin_field: Field, field_to_move_to: Field):
+    return Move(origin_field, origin_field.getPiece(), field_to_move_to, 0)
 
 
 def findPiecesByKind(kind: str) -> list:
@@ -1537,12 +1704,21 @@ def highlightMoves(moves: list, should_highlight: bool):
                     chessboard.itemconfigure(id, fill=light_field_color, activefill="#1419a6")
 
 
-def movePiece(origin_field: Field, name_of_field_to_move_to: str):
+def movePiece(origin_field: Field, name_of_field_to_move_to: str, bIs_simulated: bool = False):
     target_field = getFieldByName(name_of_field_to_move_to)
+    transformed_move = transformValidMovesIntoMoveClass(origin_field, target_field)
+    global AI_piece_capture
+    global piece_capture_history
     if target_field.getName() == origin_field.getName():
         return
-    if target_field.hasPiece() and not(target_field.getPiece().getOwner().getPlayer() == current_player):
-        pieceCaptured(origin_field, target_field)
+    if target_field.hasPiece() and (not(target_field.getPiece().getOwner().getPlayer() == current_player) or bIs_simulated):
+        if bIs_simulated:
+            AI_piece_capture.append(True)
+        captured_piece = transformed_move.getMoveField().getPiece()
+        piece_capture_history.append([transformed_move, captured_piece])
+        pieceCaptured(origin_field, target_field, bIs_simulated)
+    else:
+        AI_piece_capture.append(False)
     if (origin_field.getPiece().getKind()) == "Pawn" and (target_field.getRow() == 0 or target_field.getRow() == 7):
         promotePawn(origin_field, target_field)
     if origin_field.getPiece().getKind() == "Pawn" and target_field.getRow() == origin_field.getRow() - 2:
@@ -1565,7 +1741,10 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
                 tracked_pawn_fields_2.remove(field_name)
             elif target_field.getName() == field_name and not(boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer()):
                 print("2: captured")
-                pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()])
+                pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()], bIs_simulated)
+                if bIs_simulated:
+                    AI_piece_capture.append(True)
+                piece_capture_history.append(transformed_move)
                 target_field.setPiece(origin_field.getPiece())
                 boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].setPiece(None)
             elif target_field.getName() == field_name and boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer():
@@ -1581,7 +1760,10 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
                 tracked_pawn_fields_1.remove(field_name)
             elif target_field.getName() == field_name and not(boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer()):
                 print("1: captured")
-                pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()])
+                pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()], bIs_simulated)
+                if bIs_simulated:
+                    AI_piece_capture.append(True)
+                piece_capture_history.append(transformed_move)
                 target_field.setPiece(origin_field.getPiece())
                 boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].setPiece(None)
             elif target_field.getName() == field_name and boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer():
@@ -1634,16 +1816,14 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
             if current_player == 2:
                     player_1_king_check = True
                     player_1_check_field.config(background=bg_color_if_check_true, foreground=fg_color_if_check_true)
-
             elif current_player == 1:
                     player_2_king_check = True
                     player_2_check_field.config(background=bg_color_if_check_true, foreground=fg_color_if_check_true)
-
         else:
-            if current_player == 1:
+            if current_player == 2:
                     player_1_king_check = False
                     player_1_check_field.config(background=chessboard_color, foreground=fg_color_if_check_false)
-            elif current_player == 2:
+            elif current_player == 1:
                     player_2_king_check = False
                     player_2_check_field.config(background=chessboard_color, foreground=fg_color_if_check_false)
 
@@ -1653,14 +1833,13 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str):
     for name in findPiecesByKind("King"):
         field = getFieldByName(name)
         if not(getValidKingMoves(field)) and not(is_surrounded_by_allies(field)):
-            if field.getPiece().getOwner().getPlayer() == 1:
-                gameWon(2)
-            else:
-                gameWon(1)
-
+            if not bIs_simulated:
+                if field.getPiece().getOwner().getPlayer() == 1:
+                    gameWon(2)
+                else:
+                    gameWon(1)
     #addMoveHistory(origin_field, origin_piece_kind, target_field)
     drawWindow()
-    nextPlayer()
 
 
 def promotePawn(origin_field: Field, target_field: Field):
@@ -1709,11 +1888,15 @@ def nextPlayer():
     global current_player
     global turn
     if current_player == 1:
+        if isAI(current_player):
+            player_1_thinking_field.configure(foreground=window_color)
         current_player = 2
         print("Player changed from Player["+ str(current_player-1) + "] to Player[" + str(current_player) + "]")
         player_2_field.configure(background=light_field_color, foreground="Black")
         player_1_field.configure(background=dark_field_color, foreground=white_color_substitute)
     elif current_player == 2:
+        if isAI(current_player):
+            player_2_thinking_field.configure(foreground=window_color)
         print("Player changed from Player["+ str(current_player) + "] to Player[" + str(current_player-1) + "]")
         current_player = 1
         player_1_field.configure(background=light_field_color, foreground="Black")
@@ -1721,12 +1904,17 @@ def nextPlayer():
     turn += 1
     print("Current turn: " + str(turn))
     if isAI(current_player):
+        if current_player == 1:
+            player_1_thinking_field.configure(foreground=light_field_color)
+        if current_player == 2:
+            player_2_thinking_field.configure(foreground=light_field_color)
         move(None)
 
-def pieceCaptured(owner_field: Field, captured_field: Field):
+
+def pieceCaptured(owner_field: Field, captured_field: Field, bIs_simulated: bool):
     owner = owner_field.getPiece().getOwner().getPlayer()
     captured_piece = captured_field.getPiece().getKind()
-    if captured_piece == "King":
+    if captured_piece == "King" and not bIs_simulated:
         gameWon(owner)
 
 def gameWon(player: int):
