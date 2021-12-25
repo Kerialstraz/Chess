@@ -199,10 +199,20 @@ class Board:
 
 def main():
     FEN = "2kr4/ppp2p2/2p4p/8/3b4/5N1b/PP2QPq1/RN3R1K w - - 2 19"
-    a = Board(FEN)
-    print(a)
+    board = Board(FEN)
     import webbrowser
-    webbrowser.open(f'https://lichess.org/analysis/{FEN}')
+    # webbrowser.open(f'https://lichess.org/analysis/{FEN}')
+
+    print(board)
+    for i in range(8):
+        for j in range(8):
+            p = board.board[i, j]
+            if p is None:
+                continue
+            print(p)
+            if isinstance(p, piece.Piece):
+                print(len(p.atacking_region(board)))
+                print(p.atacking_region(board))
 
 
 if __name__ == "__main__":
