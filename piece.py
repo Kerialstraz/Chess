@@ -21,7 +21,23 @@ class color:
     BLACK = 'b'
 
 
+opponent_dict = {
+    color.WHITE: color.BLACK,
+    color.BLACK: color.WHITE
+}
+
 _file_labels = list('abcdefgh')
+
+
+def getEnemy(col: str):
+    return opponent_dict[col]
+
+
+def getAtkReg(attacker_pieces: Set, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
+    '''
+    Return the atack region of the {color} color.
+    '''
+    return set.union(*[p.atacking_region(chess_board) for p in attacker_pieces])
 
 
 def alg_not_square(coord: Tuple[int, int]) -> str:
@@ -54,7 +70,7 @@ class Piece:
         self.coord = coord
         self.moved = moved
 
-    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
+    def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
         pass
 
     def possible_moves():
@@ -62,6 +78,13 @@ class Piece:
 
     def legal_moves():
         raise NotImplementedError
+
+    def isPinned(self, meta: board.Board) -> bool:
+        brd_without_me = meta.board.copy()
+        brd_without_me[self.coord] = None
+        enemy_pieces = meta.pieces_dict[getEnemy(self.color)]
+        my_king_coords = meta.kings[self.color].coord
+        return (my_king_coords in getAtkReg(enemy_pieces, brd_without_me))
 
     def __repr__(self) -> str:
         return f'{self.color.upper()}{type(self).__name__} at {self.coord}'
@@ -72,9 +95,8 @@ class Piece:
 
 class _DirSpecific(Piece):
 
-    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
+    def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
         atck_region = set()
-        chess_board = meta.board
         for direction in self.atk_direction:
             i, j = self.coord
             di, dj = direction
@@ -85,8 +107,6 @@ class _DirSpecific(Piece):
                     p = chess_board[i, j]
                     if p is None:
                         atck_region.add((i, j))
-                    elif isEnemy(self, p):
-                        break
                     else:
                         atck_region.add((i, j))
                         break
@@ -101,7 +121,7 @@ class Pawn(Piece):
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
 
-    def atacking_region(self, meta: board.Board):
+    def atacking_region(self, chess_board):
         if self.color == color.WHITE:
             atk_delta = ((-1, -1), (-1, +1))
         else:
@@ -131,7 +151,7 @@ class Knight(Piece):
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
 
-    def atacking_region(self, meta) -> Set[Tuple[int, int]]:
+    def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
         atck_region = set()
         for delta in self.atk_delta:
             i, j = self.coord
@@ -166,7 +186,7 @@ class King(Piece):
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
 
-    def atacking_region(self, meta) -> Set[Tuple[int, int]]:
+    def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
         atck_region = set()
         for delta in self.atk_delta:
             i, j = self.coord

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import piece
 
@@ -21,8 +21,8 @@ class Arr2D:
     Has custom getitem and setitem methods to allow tuples for indexing.
     '''
 
-    def __init__(self, rows: int, cols: int) -> None:
-        self._arr = [[0 for _ in range(cols)] for _ in range(rows)]
+    def __init__(self, arr) -> None:
+        self._arr = arr
 
     def __getitem__(self, index: tuple) -> object:
         r, c = index
@@ -38,17 +38,12 @@ class Arr2D:
     def __iter__(self):
         return iter(self._arr)
 
-    def copy(self) -> List[List[object]]:
-        return [row.copy() for row in self._arr]
+    def copy(self) -> Arr2D:
+        return Arr2D([row.copy() for row in self._arr])
 
     @classmethod
-    def fromList(cls, array: List[List[object]]):
-        rows = len(array)
-        columns = len(array[0])
-        new_array = cls(rows, columns)
-        for i, j in ((x, y) for x in range(rows) for y in range(columns)):
-            new_array[i, j] = array[i][j]
-        return new_array
+    def fromSize(cls, rows: int, cols: int):
+        return cls([[0 for _ in range(cols)] for _ in range(rows)])
 
 
 def FEN_parser(FENstring: str) -> _FEN:
@@ -65,29 +60,28 @@ def FEN_parser(FENstring: str) -> _FEN:
             else:
                 row.append(char)
         board.append(row)
-    board = Arr2D.fromList(board)
+    board = Arr2D(board)
     return _FEN(board, *fields[1:])
 
 
 class Board:
-    board: List[List[Optional(piece.Piece)]]
+    board: Arr2D
     turn: str
     half_move: int
     fullmove: int
     pawn2move: Optional(Tuple[int, int])
-    wht_king: piece.King
-    blk_king: piece.King
-    wht_rooks: Set[piece.Rook]
-    blk_rooks: Set[piece.Rook]
-    wht_pieces: Set[piece.Piece]
-    blk_pieces: Set[piece.Piece]
+    kings: dict[str, piece.King]
+    wht_rooks: set[piece.Rook]
+    blk_rooks: set[piece.Rook]
+    pieces_dict: dict[str, set[piece.Piece]]
+
 
     def __init__(self, starting_positing: str = BOARD_START_POS):
-        self.board = Arr2D(8, 8)
+        self.board = Arr2D.fromSize(8, 8)
         self.wht_rooks = set()
         self.blk_rooks = set()
-        self.wht_pieces = set()
-        self.blk_pieces = set()
+        self.pieces_dict = {piece.color.WHITE: set(), piece.color.BLACK: set()}
+        self.kings = {}
 
         self.load_board_from_FEN(starting_positing)
 
@@ -149,10 +143,7 @@ class Board:
                 self.board[row, col] = final_piece
 
                 if isinstance(final_piece, piece.King):
-                    if final_piece.color == piece.color.WHITE:
-                        self.wht_king = final_piece
-                    else:
-                        self.blk_king = final_piece
+                    self.kings[color] = final_piece
 
                 elif isinstance(final_piece, piece.Rook):
                     if final_piece.color == piece.color.WHITE:
@@ -160,10 +151,7 @@ class Board:
                     else:
                         self.blk_rooks.add(final_piece)
 
-                if final_piece.color == piece.color.WHITE:
-                    self.wht_pieces.add(final_piece)
-                else:
-                    self.blk_pieces.add(final_piece)
+                self.pieces_dict[color].add(final_piece)
 
         for char in parsed_fen.castle:
             if char == '-':
@@ -198,21 +186,20 @@ class Board:
 
 
 def main():
-    FEN = "2kr4/ppp2p2/2p4p/8/3b4/5N1b/PP2QPq1/RN3R1K w - - 2 19"
+    FEN = 'r4rk1/pp1p1ppp/1qp2n2/8/4P3/1P1P2Q1/PBP2PPP/R4RK1 w - - 0 1'
     board = Board(FEN)
     import webbrowser
-    # webbrowser.open(f'https://lichess.org/analysis/{FEN}')
 
+    webbrowser.open(f'https://lichess.org/analysis/{FEN}')
     print(board)
     for i in range(8):
         for j in range(8):
             p = board.board[i, j]
             if p is None:
                 continue
-            print(p)
             if isinstance(p, piece.Piece):
-                print(len(p.atacking_region(board)))
-                print(p.atacking_region(board))
+                if p.isPinned(board):
+                    print(p)
 
 
 if __name__ == "__main__":
