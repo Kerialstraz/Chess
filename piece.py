@@ -1,3 +1,14 @@
+'''
+- Piece
+    - _DirSpecific
+        - Bishop
+        - Rook
+        - Queen
+    - King
+    - Knight
+    - Pawn
+'''
+
 from __future__ import annotations
 
 from typing import Dict, List, Set, Tuple
@@ -59,6 +70,31 @@ class Piece:
         return f'{self.color.upper()}{type(self).__name__} at {alg_not_square(self.coord)}'
 
 
+class _DirSpecific(Piece):
+
+    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
+        atck_region = set()
+        chess_board = meta.board
+        for direction in self.atk_direction:
+            i, j = self.coord
+            di, dj = direction
+            while True:
+                i += di
+                j += dj
+                if 0 <= i <= 7 and 0 <= j <= 7:
+                    p = chess_board[i, j]
+                    if p is None:
+                        atck_region.add((i, j))
+                    elif isEnemy(self, p):
+                        break
+                    else:
+                        atck_region.add((i, j))
+                        break
+                else:
+                    break
+        return atck_region
+
+
 class Pawn(Piece):
     alg_notation = 'p'
 
@@ -80,34 +116,12 @@ class Pawn(Piece):
         return atck_region
 
 
-class Rook(Piece):
+class Rook(_DirSpecific):
     alg_notation = 'r'
     atk_direction: List[Tuple[int, int]] = [(+1, 0), (-1, 0), (0, +1), (0, -1)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
-
-    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
-        atck_region = set()
-        chess_board = meta.board
-        for direction in self.atk_direction:
-            i, j = self.coord
-            di, dj = direction
-            while True:
-                i += di
-                j += dj
-                if 0 <= i <= 7 and 0 <= j <= 7:
-                    p = chess_board[i, j]
-                    if p is None:
-                        atck_region.add((i, j))
-                    elif isEnemy(self, p):
-                        break
-                    else:
-                        atck_region.add((i, j))
-                        break
-                else:
-                    break
-        return atck_region
 
 
 class Knight(Piece):
@@ -129,64 +143,20 @@ class Knight(Piece):
         return atck_region
 
 
-class Bishop(Piece):
+class Bishop(_DirSpecific):
     alg_notation = 'b'
     atk_direction: List[Tuple[int, int]] = [(+1, +1), (-1, -1), (+1, -1), (-1, +1)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
 
-    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
-        atck_region = set()
-        chess_board = meta.board
-        for direction in self.atk_direction:
-            i, j = self.coord
-            di, dj = direction
-            while True:
-                i += di
-                j += dj
-                if 0 <= i <= 7 and 0 <= j <= 7:
-                    p = chess_board[i, j]
-                    if p is None:
-                        atck_region.add((i, j))
-                    elif isEnemy(self, p):
-                        break
-                    else:
-                        atck_region.add((i, j))
-                        break
-                else:
-                    break
-        return atck_region
 
-
-class Queen(Piece):
+class Queen(_DirSpecific):
     alg_notation = 'q'
     atk_direction: List[Tuple[int, int]] = list(Rook.atk_direction) + list(Bishop.atk_direction)
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
-
-    def atacking_region(self, meta: board.Board) -> Set[Tuple[int, int]]:
-        atck_region = set()
-        chess_board = meta.board
-        for direction in self.atk_direction:
-            i, j = self.coord
-            di, dj = direction
-            while True:
-                i += di
-                j += dj
-                if 0 <= i <= 7 and 0 <= j <= 7:
-                    p = chess_board[i, j]
-                    if p is None:
-                        atck_region.add((i, j))
-                    elif isEnemy(self, p):
-                        break
-                    else:
-                        atck_region.add((i, j))
-                        break
-                else:
-                    break
-        return atck_region
 
 
 class King(Piece):
