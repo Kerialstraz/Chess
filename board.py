@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Optional, Tuple
 
 import piece
 
@@ -74,7 +74,6 @@ class Board:
     wht_rooks: set[piece.Rook]
     blk_rooks: set[piece.Rook]
     pieces_dict: dict[str, set[piece.Piece]]
-
 
     def __init__(self, starting_positing: str = BOARD_START_POS):
         self.board = Arr2D.fromSize(8, 8)

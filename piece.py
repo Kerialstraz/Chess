@@ -11,9 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Set, Tuple
+from collections import namedtuple
+from typing import Dict, Optional, Set, Tuple
 
 import board
+
+m_move = namedtuple('move', ['start_pos', 'end_pos'])
+m_capture = namedtuple('capture', ['start_pos', 'end_pos'])
 
 
 class color:
@@ -27,6 +31,10 @@ opponent_dict = {
 }
 
 _file_labels = list('abcdefgh')
+
+
+def isValidMove():
+    pass
 
 
 def getEnemy(col: str):
@@ -73,9 +81,6 @@ class Piece:
     def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
         pass
 
-    def possible_moves():
-        raise NotImplementedError
-
     def legal_moves():
         raise NotImplementedError
 
@@ -114,6 +119,34 @@ class _DirSpecific(Piece):
                     break
         return atck_region
 
+    def move_wout_check_no_pin(self, meta: board.Board) -> dict[Tuple[int, int], list[m_move | m_capture]]:
+        moves: dict[Tuple[int, int], list[m_move | m_capture]] = {}
+        brd = meta.board
+        for direction in self.atk_direction:
+            moves[direction] = []
+            i, j = self.coord
+            di, dj = direction
+            while True:
+                i += di
+                j += dj
+                if 0 <= i <= 7 and 0 <= j <= 7:
+                    if isEmptySquare((i, j), brd):
+                        moves[direction].append(m_move(self.coord, (i, j)))
+                    elif isEnemySquare(self, (i, j), brd):
+                        moves[direction].append(m_capture(self.coord, (i, j)))
+                        break
+                    else:
+                        break
+                else:
+                    break
+        return moves
+
+    def move_wout_check_with_pin(self, meta: board.Board) -> list[Tuple[int, int]]:
+        moves_wout_pin = self.move_wout_check_no_pin(meta)
+        moves = []
+        for dir_mov_list in moves_wout_pin.values():
+            dir_mov_list
+
 
 class Pawn(Piece):
     alg_notation = 'p'
@@ -138,7 +171,7 @@ class Pawn(Piece):
 
 class Rook(_DirSpecific):
     alg_notation = 'r'
-    atk_direction: List[Tuple[int, int]] = [(+1, 0), (-1, 0), (0, +1), (0, -1)]
+    atk_direction: list[Tuple[int, int]] = [(+1, 0), (-1, 0), (0, +1), (0, -1)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
@@ -146,12 +179,12 @@ class Rook(_DirSpecific):
 
 class Knight(Piece):
     alg_notation = 'n'
-    atk_delta: List[Tuple[int, int]] = [(-2, +1), (-2, -1), (+2, +1), (+2, -1), (+1, -2), (-1, -2), (+1, +2), (-1, +2)]
+    atk_delta: list[Tuple[int, int]] = [(-2, +1), (-2, -1), (+2, +1), (+2, -1), (+1, -2), (-1, -2), (+1, +2), (-1, +2)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
 
-    def atacking_region(self, chess_board: board.Arr2D) -> Set[Tuple[int, int]]:
+    def atacking_region(self, chess_board: board.Arr2D) -> set[Tuple[int, int]]:
         atck_region = set()
         for delta in self.atk_delta:
             i, j = self.coord
@@ -162,10 +195,31 @@ class Knight(Piece):
                 atck_region.add((i, j))
         return atck_region
 
+    def move_wout_check_no_pin(self, meta: board.Board) -> list[Tuple[int, int]]:
+        moves = []
+        brd = meta.board
+        for delta in self.atk_delta:
+            i, j = self.coord
+            di, dj = delta
+            i += di
+            j += dj
+            if 0 <= i <= 7 and 0 <= j <= 7:
+                if isEmptySquare((i, j), brd):
+                    moves.append(m_move(self.coord, (i, j)))
+                elif isEnemySquare(self, (i, j), brd):
+                    moves.append(m_capture(self.coord, (i, j)))
+        return moves
+
+    def move_wout_check_with_pin(self):
+        return []
+
+    def legal_moves():
+        pass
+
 
 class Bishop(_DirSpecific):
     alg_notation = 'b'
-    atk_direction: List[Tuple[int, int]] = [(+1, +1), (-1, -1), (+1, -1), (-1, +1)]
+    atk_direction: list[Tuple[int, int]] = [(+1, +1), (-1, -1), (+1, -1), (-1, +1)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
@@ -173,7 +227,7 @@ class Bishop(_DirSpecific):
 
 class Queen(_DirSpecific):
     alg_notation = 'q'
-    atk_direction: List[Tuple[int, int]] = list(Rook.atk_direction) + list(Bishop.atk_direction)
+    atk_direction: list[Tuple[int, int]] = list(Rook.atk_direction) + list(Bishop.atk_direction)
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
@@ -181,7 +235,7 @@ class Queen(_DirSpecific):
 
 class King(Piece):
     alg_notation = 'k'
-    atk_delta: List[Tuple[int, int]] = [(i, j) for i in range(-1, 2) for j in range(-1, 2) if (i, j) != (0, 0)]
+    atk_delta: list[Tuple[int, int]] = [(i, j) for i in range(-1, 2) for j in range(-1, 2) if (i, j) != (0, 0)]
 
     def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
         super().__init__(color, coord, moved=moved)
@@ -198,11 +252,15 @@ class King(Piece):
         return atck_region
 
 
-def isEnemy(p1: Piece, p2: Piece) -> bool:
-    return p1.color != p2.color
+def isEmptySquare(coord: Tuple[int, int], board: board.Arr2D):
+    return board[coord] is None
 
 
-piece_dict: Dict[str, callable] = {
+def isEnemySquare(p1: Piece, coord: Tuple[int, int], board: list[list[Optional(Piece)]]):
+    return p1.color != board[coord].color
+
+
+piece_dict: dict[str, callable] = {
     'p': Pawn,
     'b': Bishop,
     'n': Knight,
@@ -211,7 +269,7 @@ piece_dict: Dict[str, callable] = {
     'k': King,
 }
 
-default_rook_postion: Dict[str, Tuple[int, int]] = {
+default_rook_postion: dict[str, Tuple[int, int]] = {
     'k': alg_not_to_coords('h8'),
     'q': alg_not_to_coords('a8'),
     'K': alg_not_to_coords('h1'),
