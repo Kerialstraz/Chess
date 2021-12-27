@@ -198,8 +198,11 @@ class GUI:
         )
 
         self.board_fields = []
+        self.initializeBoard()
 
         self.chessboard.bind("<Configure>", self.drawWindow)
+
+        self.root.mainloop()
 
     def drawChessboard(self):
         self.chessboard.delete("all")
