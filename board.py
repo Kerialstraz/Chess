@@ -71,14 +71,11 @@ class Board:
     fullmove: int
     pawn2move: Optional(Tuple[int, int])
     kings: dict[str, piece.King]
-    wht_rooks: set[piece.Rook]
-    blk_rooks: set[piece.Rook]
     pieces_dict: dict[str, set[piece.Piece]]
+    check: bool
 
     def __init__(self, starting_positing: str = BOARD_START_POS):
         self.board = Arr2D.fromSize(8, 8)
-        self.wht_rooks = set()
-        self.blk_rooks = set()
         self.pieces_dict = {piece.color.WHITE: set(), piece.color.BLACK: set()}
         self.kings = {}
 
@@ -144,12 +141,6 @@ class Board:
                 if isinstance(final_piece, piece.King):
                     self.kings[color] = final_piece
 
-                elif isinstance(final_piece, piece.Rook):
-                    if final_piece.color == piece.color.WHITE:
-                        self.wht_rooks.add(final_piece)
-                    else:
-                        self.blk_rooks.add(final_piece)
-
                 self.pieces_dict[color].add(final_piece)
 
         for char in parsed_fen.castle:
@@ -166,6 +157,22 @@ class Board:
                 p.moved = False
             else:
                 raise InvalidFEN('Invalid character in castle field')
+
+    def __repr__(self) -> str:
+        brd = []
+        for ind, row in enumerate(self.board):
+            rw = []
+            for piece_atsq in row:
+                if piece_atsq is not None:
+                    piece_repr = piece_atsq.alg_notation
+                    if piece_atsq.color == piece.color.WHITE:
+                        piece_repr = piece_repr.upper()
+                else:
+                    piece_repr = _EMPTY_CHAR
+                rw.append(piece_repr)
+            brd.append([str(ind)] + rw + [' '])
+        fullstring = ['  0 1 2 3 4 5 6 7', '\n'.join(('|'.join(row) for row in brd)), ' '+'¯'*17]
+        return '\n'.join(fullstring)
 
     def __str__(self) -> str:
         brd = []
@@ -185,20 +192,22 @@ class Board:
 
 
 def main():
-    FEN = 'r4rk1/pp1p1ppp/1qp2n2/8/4P3/1P1P2Q1/PBP2PPP/R4RK1 w - - 0 1'
+    FEN = '5k2/p1p2pp1/7p/2n5/8/BP3P2/P1P3PP/1K6 b - - 1 1'
     board = Board(FEN)
+    board.check = False
     import webbrowser
 
-    webbrowser.open(f'https://lichess.org/analysis/{FEN}')
-    print(board)
+    # webbrowser.open(f'https://lichess.org/analysis/{FEN}')
+    print(repr(board))
     for i in range(8):
         for j in range(8):
             p = board.board[i, j]
             if p is None:
                 continue
             if isinstance(p, piece.Piece):
-                if p.isPinned(board):
-                    print(p)
+                print(board)
+                print(p)
+                print(p.legal_moves(board))
 
 
 if __name__ == "__main__":
