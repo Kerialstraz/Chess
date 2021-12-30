@@ -18,7 +18,7 @@ class GUI_Settings:
     chessboard_displacement = 60
     chessboard_line_width = 4
 
-    # Letter Bib
+    # Used for the chessboard letters
     lettering_bib = {
         0: "A",
         1: "B",
@@ -30,7 +30,7 @@ class GUI_Settings:
         7: "H",
     }
 
-    # Number Bib
+    # Used for the chessboard numbers
     numbering_bib = {
         0: 8,
         1: 7,
