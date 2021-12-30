@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from collections import namedtuple
 from typing import Optional, Tuple
+from enum import Enum
 
 import piece
+
+
+class End(Enum):
+    in_progress = 1
+    checkmate = 2
+    stalemate = 3
+    repetetion = 4
+    fifty_move = 5
+    timeout = 6
 
 
 class InvalidFEN(Exception):
@@ -11,7 +21,7 @@ class InvalidFEN(Exception):
 
 
 BOARD_START_POS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0'
-_FEN = namedtuple('FEN', ['board', 'turn', 'castle', 'pawn2move', 'halfmove', 'fullmove'])
+_FEN = namedtuple('_FEN', ['board', 'turn', 'castle', 'pawn2move', 'halfmove', 'fullmove'])
 _EMPTY_CHAR = '·'
 
 
@@ -24,7 +34,7 @@ class Arr2D:
     def __init__(self, arr) -> None:
         self._arr = arr
 
-    def __getitem__(self, index: tuple) -> object:
+    def __getitem__(self, index: tuple):
         r, c = index
         return self._arr[r][c]
 
@@ -45,6 +55,10 @@ class Arr2D:
     def fromSize(cls, rows: int, cols: int):
         return cls([[0 for _ in range(cols)] for _ in range(rows)])
 
+    @staticmethod
+    def flatten(arr: list):
+        return [element for nest in arr for element in nest]
+
 
 def FEN_parser(FENstring: str) -> _FEN:
     fields = FENstring.split()
@@ -60,8 +74,7 @@ def FEN_parser(FENstring: str) -> _FEN:
             else:
                 row.append(char)
         board.append(row)
-    board = Arr2D(board)
-    return _FEN(board, *fields[1:])
+    return _FEN(Arr2D(board), *fields[1:])
 
 
 class Board:
@@ -69,10 +82,12 @@ class Board:
     turn: str
     half_move: int
     fullmove: int
-    pawn2move: Optional(Tuple[int, int])
+    pawn2move: Optional[Tuple[int, int]]
     kings: dict[str, piece.King]
     pieces_dict: dict[str, set[piece.Piece]]
     check: bool
+    game_state: Tuple[End, Optional[piece.color]]
+    legal_moves: list
 
     def __init__(self, starting_positing: str = BOARD_START_POS):
         self.board = Arr2D.fromSize(8, 8)
@@ -80,6 +95,7 @@ class Board:
         self.kings = {}
 
         self.load_board_from_FEN(starting_positing)
+        self.analyse_game_state()
 
     def load_board_from_FEN(self, fenstring: str):
         parsed_fen = FEN_parser(fenstring)
@@ -127,7 +143,7 @@ class Board:
                 if p.lower() == 'p':
                     if (color == piece.color.WHITE) and row == 6:
                         has_moved = False
-                    if (color == piece.color.BLACK) and row == 1:
+                    elif (color == piece.color.BLACK) and row == 1:
                         has_moved = False
                     else:
                         has_moved = True
@@ -135,6 +151,7 @@ class Board:
                     has_moved = True
                 else:
                     has_moved = False
+
                 final_piece: piece.Piece = piece.piece_dict[p.lower()](color, coords, has_moved)
                 self.board[row, col] = final_piece
 
@@ -157,6 +174,97 @@ class Board:
                 p.moved = False
             else:
                 raise InvalidFEN('Invalid character in castle field')
+
+    def step(self, move) -> None:
+        if self.game_state[0] is not End.in_progress:
+            raise Exception('Game has already been ended.')
+
+        brd = self.board
+        if isinstance(move, (piece.m_move, piece.m_2pawnmove)):
+            p: piece.Piece = self.board[move.start_pos]
+
+            brd[move.end_pos], brd[move.start_pos] = brd[move.start_pos], None
+
+            p.moved = True
+            p.coord = move.end_pos
+
+        elif isinstance(move, piece.m_capture):
+            p: piece.Piece = self.board[move.start_pos]
+            dead_p: piece.Piece = brd[move.end_pos]
+
+            brd[move.end_pos], brd[move.start_pos] = brd[move.start_pos], None
+
+            p.moved = True
+            p.coord = move.end_pos
+            dead_p.coord = None
+            self.pieces_dict[dead_p.color].remove(dead_p)
+
+        elif isinstance(move, piece.m_en_passent):
+            p: piece.Piece = brd[move.start_pos]
+            dead_p: piece.Piece = brd[move.target_square]
+
+            brd[move.end_pos], brd[move.start_pos], brd[move.target_square] = brd[move.start_pos], None, None
+
+            p.moved = True
+            p.coord = move.end_pos
+            dead_p.coord = None
+            self.pieces_dict[dead_p.color].remove(dead_p)
+
+        elif isinstance(move, piece.m_castle):
+            king: piece.Piece = brd[move.king_start_pos]
+            rook: piece.Piece = brd[move.rook_start_pos]
+
+            brd[move.king_end_pos], brd[move.rook_end_pos], brd[move.king_start_pos], brd[move.rook_start_pos] = brd[move.king_start_pos], brd[move.rook_start_pos], None, None
+
+            king.coord = move.king_end_pos
+            rook.coord = move.rook_end_pos
+            king.moved = True
+            rook.moved = True
+
+        elif isinstance(move, piece.m_prom):
+            p: piece.Piece = brd[move.start_pos]
+            promoted_piece: piece.Piece = piece.piece_dict[move.promoted_piece](p.color, move.end_pos, moved=True)
+
+            brd[move.end_pos], brd[move.start_pos] = promoted_piece, None
+
+            p.coord = None
+            self.pieces_dict[p.color].remove(p)
+            self.pieces_dict[promoted_piece.color].add(promoted_piece)
+
+        elif isinstance(move, piece.m_prom_cap):
+            p: piece.Piece = brd[move.start_pos]
+            dead_p: piece.Piece = brd[move.end_pos]
+
+            promoted_piece: piece.Piece = piece.piece_dict[move.promoted_piece](p.color, move.end_pos, moved=True)
+            brd[move.end_pos], brd[move.start_pos] = promoted_piece, None
+
+            p.coord = None
+            dead_p.coord = None
+            self.pieces_dict[dead_p.color].remove(dead_p)
+            self.pieces_dict[p.color].remove(p)
+            self.pieces_dict[promoted_piece.color].add(promoted_piece)
+
+        else:
+            raise Exception('Invalid move passed')
+
+        self.turn = piece.getEnemy(self.turn)
+
+        self.analyse_game_state()
+
+    def analyse_game_state(self):
+        in_check = (self.kings[self.turn].coord in piece.getAtkReg(self.pieces_dict[piece.getEnemy(self.turn)], self.board))
+        self.check = in_check
+        legal_moves = Arr2D.flatten([p.legal_moves(self) for p in self.pieces_dict[self.turn]])
+        self.legal_moves = legal_moves
+
+        if len(legal_moves) > 0:
+            self.game_state = (End.in_progress, None)
+
+        elif in_check:
+            self.game_state = (End.checkmate, piece.getEnemy(self.turn))
+
+        else:
+            self.game_state = (End.stalemate, None)
 
     def __repr__(self) -> str:
         brd = []
@@ -193,21 +301,24 @@ class Board:
 
 def main():
     FEN = '5k2/p1p2pp1/7p/2n5/8/BP3P2/P1P3PP/1K6 b - - 1 1'
-    board = Board(FEN)
-    board.check = False
+    from random import choice
+    board = Board()
+    print(repr(board))
+    print(len(board.legal_moves))
+    print(board.check, board.game_state)
     import webbrowser
 
     # webbrowser.open(f'https://lichess.org/analysis/{FEN}')
-    print(repr(board))
-    for i in range(8):
-        for j in range(8):
-            p = board.board[i, j]
-            if p is None:
-                continue
-            if isinstance(p, piece.Piece):
-                print(board)
-                print(p)
-                print(p.legal_moves(board))
+    # print(repr(board))
+    # for i in range(8):
+    #     for j in range(8):
+    #         p = board.board[i, j]
+    #         if p is None:
+    #             continue
+    #         if isinstance(p, piece.Piece) and p.color == piece.color.BLACK:
+    #             print(board)
+    #             print(p)
+    #             print(p.legal_moves(board))
 
 
 if __name__ == "__main__":

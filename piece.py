@@ -12,17 +12,17 @@
 from __future__ import annotations
 
 from collections import defaultdict, namedtuple
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import board
 
-m_move = namedtuple('move', ['start_pos', 'end_pos'])
-m_capture = namedtuple('capture', ['start_pos', 'end_pos'])
-m_2pawnmove = namedtuple('pawn2move', ['start_pos', 'end_pos'])
-m_en_passent = namedtuple('en_passent', ['start_pos', 'end_pos', 'target_square'])
-m_prom = namedtuple('promotion', ['start_pos', 'end_pos', 'promoted_piece'])
-m_prom_cap = namedtuple('prom_cap', ['start_pos', 'end_pos', 'promoted_piece'])
-m_castle = namedtuple('castle', ['king_start_pos', 'rook_start_pos', 'king_end_pos', 'rook_end_pos'])
+m_move = namedtuple('m_move', ['start_pos', 'end_pos'])
+m_capture = namedtuple('m_capture', ['start_pos', 'end_pos'])
+m_2pawnmove = namedtuple('m_2pawnmove', ['start_pos', 'end_pos'])
+m_en_passent = namedtuple('m_en_passent', ['start_pos', 'end_pos', 'target_square'])
+m_prom = namedtuple('m_prom', ['start_pos', 'end_pos', 'promoted_piece'])
+m_prom_cap = namedtuple('m_prom_cap', ['start_pos', 'end_pos', 'promoted_piece'])
+m_castle = namedtuple('m_castle', ['king_start_pos', 'rook_start_pos', 'king_end_pos', 'rook_end_pos'])
 
 
 class color:
@@ -54,7 +54,7 @@ def isValidMove(move, color, meta: board.Board):
         return meta.kings[color].coord not in getAtkReg(enemy_p, brd)
 
     elif isinstance(move, (m_capture, m_prom_cap)):
-        dead_p = brd[move.end_pos]
+        dead_p: Piece = brd[move.end_pos]
         brd[move.end_pos], brd[move.start_pos] = brd[move.start_pos], None
         enemy_p = meta.pieces_dict[getEnemy(color)].copy()
         enemy_p.discard(dead_p)
@@ -93,8 +93,8 @@ def alg_not_to_coords(notation: str) -> Tuple[int, int]:
     '''
     Algebric notation to square coordinates.
     '''
-    file, rank = notation
-    rank = int(rank)
+    file = notation[0]
+    rank = int(notation[1])
     return (8-rank, _file_labels.index(file.lower()))
 
 
@@ -104,7 +104,7 @@ class Piece:
     coord: Tuple[int, int]
     moved: bool
 
-    def __init__(self, color: str, coord: Tuple[int, int], moved: bool = False):
+    def __init__(self, color: str, coord: Tuple[int, int], moved: bool = True):
         self.color = color
         self.coord = coord
         self.moved = moved
@@ -112,15 +112,8 @@ class Piece:
     def atacking_region(self, chess_board: board.Arr2D) -> set[Tuple[int, int]]:
         pass
 
-    def legal_moves(self, meta: board.Board) -> list[Tuple[int,int]]:
-        if self.isPinned(meta):
-            moves = self.move_wout_check_with_pin(meta)
-        else:
-            moves = self.move_wout_check_no_pin(meta)
-            moves = [move for ml in moves.values() for move in ml]
-        if meta.check:
-            moves = [m for m in moves if isValidMove(m, self.color, meta)]
-        return moves
+    def legal_moves(self, meta: board.Board) -> list[Tuple[int, int]]:
+        raise NotImplemented
 
     def isPinned(self, meta: board.Board) -> bool:
         brd_without_me = meta.board.copy()
@@ -190,6 +183,16 @@ class _DirSpecific(Piece):
                 moves.extend(dir_mov_list)
         return moves
 
+    def legal_moves(self, meta: board.Board) -> list[Tuple[int, int]]:
+        if self.isPinned(meta):
+            moves = self.move_wout_check_with_pin(meta)
+        else:
+            moves = self.move_wout_check_no_pin(meta)
+            moves = [move for ml in moves.values() for move in ml]
+        if meta.check:
+            moves = [m for m in moves if isValidMove(m, self.color, meta)]
+        return moves
+
 
 class Pawn(Piece):
     alg_notation = 'p'
@@ -213,6 +216,7 @@ class Pawn(Piece):
         return atck_region
 
     def move_wout_check_no_pin(self, meta: board.Board):
+        # print(self.moved)
         moves = defaultdict(list)
         i, j = self.coord
         if self.color == color.WHITE:
@@ -226,7 +230,7 @@ class Pawn(Piece):
                     moves[(i+ahead, j)].append(m_prom((i, j), (i+ahead, j), prom))
             for di, dj in [(ahead, +1), (ahead, -1)]:
                 x, y = i+di, j+dj
-                if is_coord_in_brd((x, y)) and isEnemySquare(self, (x, y), meta.board):
+                if is_coord_in_brd((x, y)) and not(isEmptySquare((x,y), meta.board)) and isEnemySquare(self, (x, y), meta.board):
                     for prom in self.possible_proms:
                         moves[(x, y)].append(m_prom_cap((i, j), (x, y), prom))
         else:
@@ -234,7 +238,7 @@ class Pawn(Piece):
                 moves[(i+ahead, j)].append(m_move((i, j), (i+ahead, j)))
             for di, dj in [(ahead, +1), (ahead, -1)]:
                 x, y = i+di, j+dj
-                if is_coord_in_brd((x, y)) and not(isEmptySquare((x,y), meta.board)) and isEnemySquare(self, (x, y), meta.board):
+                if is_coord_in_brd((x, y)) and not(isEmptySquare((x, y), meta.board)) and isEnemySquare(self, (x, y), meta.board):
                     moves[(x, y)].append(m_capture((i, j), (x, y)))
             if (meta.pawn2move is not None) and meta.pawn2move[0] == i and abs(j - meta.pawn2move[1]) == 1:
                 tx, ty = meta.pawn2move
@@ -251,8 +255,18 @@ class Pawn(Piece):
     def move_wout_check_with_pin(self, meta: board.Board):
         moves = []
         for move_list in self.move_wout_check_no_pin(meta).values():
-            if isValidMove(move_list[0]):
+            if isValidMove(move_list[0], self.color, meta):
                 moves.extend(move_list)
+        return moves
+
+    def legal_moves(self, meta: board.Board) -> list[Tuple[int, int]]:
+        if self.isPinned(meta):
+            moves = self.move_wout_check_with_pin(meta)
+        else:
+            moves = self.move_wout_check_no_pin(meta)
+            moves = [move for ml in moves.values() for move in ml]
+        if meta.check:
+            moves = [m for m in moves if isValidMove(m, self.color, meta)]
         return moves
 
 
@@ -292,7 +306,7 @@ class Knight(Piece):
     def move_wout_check_with_pin(self, meta):
         return []
 
-    def legal_moves(self, meta: board.Board) -> list[Tuple[int,int]]:
+    def legal_moves(self, meta: board.Board) -> list[Tuple[int, int]]:
         if self.isPinned(meta):
             moves = self.move_wout_check_with_pin(meta)
         else:
@@ -395,7 +409,7 @@ class King(Piece):
                     moves.append(m_capture((i, j), (x, y)))
         return moves, enemy_atck_region
 
-    def legal_moves(self, meta: board.Board) -> list[Tuple[int,int]]:
+    def legal_moves(self, meta: board.Board) -> list[Tuple[int, int]]:
         if meta.check:
             moves = self.move_with_check(meta)[0]
         else:
@@ -407,11 +421,11 @@ def isEmptySquare(coord: Tuple[int, int], board: board.Arr2D):
     return board[coord] is None
 
 
-def isEnemySquare(p1: Piece, coord: Tuple[int, int], board: list[list[Optional(Piece)]]):
+def isEnemySquare(p1: Piece, coord: Tuple[int, int], board: list[list[Optional[Piece]]]) -> bool:
     return p1.color != board[coord].color
 
 
-piece_dict: dict[str, callable] = {
+piece_dict: dict[str, Callable] = {
     'p': Pawn,
     'b': Bishop,
     'n': Knight,
