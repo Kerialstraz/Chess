@@ -1063,11 +1063,11 @@ def move(event):
         time.sleep(0.25)
         global boardFields
         if current_player == 1:
-            ai_move = minimax(0, 0, True, player_1_AI.getColor(), 2, boardFields)
+            ai_move = minimax(-math.inf, math.inf, True, player_1_AI.getColor(), 2)
             movePiece(ai_move[0].getOriginField(), ai_move[0].getMoveField().getName())
             nextPlayer()
         elif current_player == 2:
-            ai_move = minimax(0, 0, True, player_2_AI.getColor(), 2, boardFields)
+            ai_move = minimax(-math.inf, math.inf, True, player_2_AI.getColor(), 2)
             movePiece(ai_move[0].getOriginField(), ai_move[0].getMoveField().getName())
             nextPlayer()
         return
@@ -1153,8 +1153,8 @@ def hasValidPawnMoves(origin_field: Field) -> bool:
 
 
 
-def minimax(alpha: int, beta: int, maximizing_player: bool, maximizing_color: str, depth: int, current_board_state: list):
-    if depth <= 0:
+def minimax(alpha: int, beta: int, maximizing_player: bool, maximizing_color: str, depth: int):
+    if depth == 0:
         return None, evaluate(maximizing_color)
 
     global tracked_pawn_fields_1
@@ -1174,49 +1174,40 @@ def minimax(alpha: int, beta: int, maximizing_player: bool, maximizing_color: st
             moves = getAllMovesByColor("Black")
             best_move = random.choice(moves)
 
+
     if maximizing_player:
         max_eval = -math.inf
         for viable_move in moves:
-            capture_ID = random.randint(1, 1000)
-            copied_state = copy.deepcopy(current_board_state)
-            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), depth, True, capture_ID)
-            tracked_pawn_fields_1 = []
-            tracked_pawn_fields_2 = []
-            current_evaluation = minimax(alpha, beta, False, maximizing_color, depth-1, copied_state)[1]
-            movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), depth, True)
-            if piece_capture_history:
-                for move in piece_capture_history:
-                    if move[2] == capture_ID and move[0].getMove_depth() == depth:
-                        boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()] = copied_state[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()]
-                        if not boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].hasPiece():
-                            boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].setPiece(piece_capture_history[-1][1])
-                        AI_piece_capture = False
-                        piece_capture_history.remove(move)
+            board_copy = copy.deepcopy(boardFields)
+            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), depth, True)
+            #tracked_pawn_fields_1 = []
+            #tracked_pawn_fields_2 = []
+            current_evaluation = minimax(alpha, beta, False, maximizing_color, depth-1)[1]
+            #alpha = max(alpha, max_eval)
+            #movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), depth, True)
+            boardFields = board_copy
             if current_evaluation > max_eval:
                 max_eval = current_evaluation
                 best_move = viable_move
+            #if beta <= alpha:
+                #break
         return best_move, int(max_eval)
     else:
         min_eval = math.inf
         for viable_move in moves:
-            capture_ID = random.randint(1, 1000)
-            copied_state = copy.deepcopy(current_board_state)
-            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), depth, True, capture_ID)
-            tracked_pawn_fields_1 = []
-            tracked_pawn_fields_2 = []
-            current_evaluation = minimax(alpha, beta, True, maximizing_color, depth-1, copied_state)[1]
-            movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), depth, True)
-            if piece_capture_history:
-                for move in piece_capture_history:
-                    if move[2] == capture_ID and move[0].getMove_depth() == depth:
-                        boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()] = copied_state[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()]
-                        if not boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].hasPiece():
-                            boardFields[viable_move.getMoveField().getRow()][viable_move.getMoveField().getColumn()].setPiece(piece_capture_history[-1][1])
-                        AI_piece_capture = False
-                        piece_capture_history.remove(move)
+            board_copy = copy.deepcopy(boardFields)
+            movePiece(viable_move.getOriginField(), viable_move.getMoveField().getName(), depth, True)
+            #tracked_pawn_fields_1 = []
+            #tracked_pawn_fields_2 = []
+            current_evaluation = minimax(alpha, beta, True, maximizing_color, depth-1)[1]
+            #beta = min(beta, min_eval)
+            #movePiece(viable_move.getMoveField(), viable_move.getOriginField().getName(), depth, True)
+            boardFields = board_copy
             if current_evaluation < min_eval:
                 min_eval = current_evaluation
                 best_move = viable_move
+            #if beta <= alpha:
+                #break
         return best_move, int(min_eval)
 
 
@@ -1720,7 +1711,7 @@ def highlightMoves(moves: list, should_highlight: bool):
                     chessboard.itemconfigure(id, fill=light_field_color, activefill="#1419a6")
 
 
-def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0, bIs_simulated: bool = False, capture_ID: int = 0):
+def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0, bIs_simulated: bool = False):
     target_field = getFieldByName(name_of_field_to_move_to)
     transformed_move = transformValidMovesIntoMoveClass(origin_field, target_field, depth)
     global AI_piece_capture
@@ -1731,7 +1722,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0
         if bIs_simulated:
             AI_piece_capture = True
         captured_piece = transformed_move.getMoveField().getPiece()
-        piece_capture_history.append([transformed_move, captured_piece, capture_ID])
+        piece_capture_history.append([transformed_move, captured_piece])
         pieceCaptured(origin_field, target_field, bIs_simulated)
     if (origin_field.getPiece().getKind()) == "Pawn" and (target_field.getRow() == 0 or target_field.getRow() == 7):
         promotePawn(origin_field, target_field)
@@ -1758,7 +1749,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0
                 pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()], bIs_simulated)
                 if bIs_simulated:
                     AI_piece_capture = True
-                piece_capture_history.append([transformed_move, captured_piece, capture_ID])
+                piece_capture_history.append([transformed_move, captured_piece])
                 target_field.setPiece(origin_field.getPiece())
                 boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].setPiece(None)
             elif target_field.getName() == field_name and boardFields[getFieldByName(field_name).getRow()-1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer():
@@ -1777,7 +1768,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0
                 pieceCaptured(origin_field, boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()], bIs_simulated)
                 if bIs_simulated:
                     AI_piece_capture = True
-                piece_capture_history.append([transformed_move, captured_piece, capture_ID])
+                piece_capture_history.append([transformed_move, captured_piece])
                 target_field.setPiece(origin_field.getPiece())
                 boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].setPiece(None)
             elif target_field.getName() == field_name and boardFields[getFieldByName(field_name).getRow()+1][getFieldByName(field_name).getColumn()].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer():
@@ -1819,7 +1810,6 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0
 
         castle = False
     else:
-        origin_piece_kind = origin_field.getPiece().getKind()
         origin_field.setPiece(None)
 
     global player_1_king_check
@@ -1854,6 +1844,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, depth: int = 0
                     gameWon(1)
     #addMoveHistory(origin_field, origin_piece_kind, target_field)
     drawWindow()
+    root.update_idletasks()
 
 
 def promotePawn(origin_field: Field, target_field: Field):
