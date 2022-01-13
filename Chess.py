@@ -295,7 +295,7 @@ player_2_color = "Black"
 current_player = 1
 
 is_player_1_AI = False
-is_player_2_AI = True
+is_player_2_AI = False
 player_1_AI = None
 player_2_AI = None
 ai_difficulty = 3
@@ -693,9 +693,9 @@ def initializeQueens():
         getFieldByName("D1").setPiece(Piece("Queen", Owner(1, player_1_color, False)))
     # Player 2 Queen
     if is_player_2_AI:
-        getFieldByName("E8").setPiece(Piece("Queen", Owner(2, player_2_color, True)))
+        getFieldByName("D8").setPiece(Piece("Queen", Owner(2, player_2_color, True)))
     else:
-        getFieldByName("E8").setPiece(Piece("Queen", Owner(2, player_2_color, False)))
+        getFieldByName("D8").setPiece(Piece("Queen", Owner(2, player_2_color, False)))
 
 def initializeKings():
     # Player 1 King
@@ -705,9 +705,9 @@ def initializeKings():
         getFieldByName("E1").setPiece(Piece("King", Owner(1, player_1_color, False)))
     # Player 2 King+
     if is_player_2_AI:
-        getFieldByName("D8").setPiece(Piece("King", Owner(2, player_2_color, True)))
+        getFieldByName("E8").setPiece(Piece("King", Owner(2, player_2_color, True)))
     else:
-        getFieldByName("D8").setPiece(Piece("King", Owner(2, player_2_color, False)))
+        getFieldByName("E8").setPiece(Piece("King", Owner(2, player_2_color, False)))
 
 # Return the combination of letter+number in order to assisn a chesslike notation to each Field() in boardFields[] inizialized by initializeBoardFields()
 def getPlayingFieldName(row: int, column: int):
@@ -953,7 +953,7 @@ def minimax(alpha: int, beta: int, maximizing_player: bool, maximizing_color: st
 
 
 
-def getValidMoves(origin_field: Field) -> list:
+def getValidMoves(origin_field: Field, is_check: bool = False) -> list:
     if debug_mode == True:
         valid_moves = []
         for row in boardFields:
@@ -962,18 +962,29 @@ def getValidMoves(origin_field: Field) -> list:
         valid_moves.remove(origin_field.getName())
         return valid_moves
 
+    piece_kind = origin_field.getPiece().getKind()
+
     if origin_field.getPiece().getOwner().getPlayer() == 1 and player_1_king_check == True:
-        if origin_field.getPiece().getKind() == "King":
-            return getValidKingMoves(origin_field)
+        #if piece_kind == "Pawn":
+            #return getValidPawnMoves(origin_field, True)
+        #if piece_kind == "Rook":
+            #return getValidRookMoves(origin_field, True)
+        #if piece_kind == "Knight":
+            #return getValidKnightMoves(origin_field, True)
+        #if piece_kind == "Bishop":
+            #return getValidBishopMoves(origin_field, True)
+        #if piece_kind == "Queen":
+            #return getValidQueenMoves(origin_field, True)
+        if piece_kind == "King":
+            return getValidKingMoves(origin_field, True)
         else:
             return []
-    elif origin_field.getPiece().getOwner().getPlayer() == 2 and player_2_king_check == True:
+    elif origin_field.getPiece().getOwner().getPlayer() == 2 and player_2_king_check == True and is_check == False:
         if origin_field.getPiece().getKind() == "King":
             return getValidKingMoves(origin_field)
         else:
             return []
 
-    piece_kind = origin_field.getPiece().getKind()
     if piece_kind == "Pawn":
         return getValidPawnMoves(origin_field)
     if piece_kind == "Rook":
@@ -1120,7 +1131,7 @@ def findPiecesByKind(kind: str) -> list:
     return kinds
 
 
-def getValidPawnMoves(origin_field: Field) -> list:
+def getValidPawnMoves(origin_field: Field, is_check: bool = False) -> list:
     player = origin_field.getPiece().getOwner().getPlayer()
     piece_row = origin_field.getRow()
     piece_column = origin_field.getColumn()
@@ -1169,7 +1180,6 @@ def getValidPawnMoves(origin_field: Field) -> list:
             if boardFields[piece_row-1][piece_column+1].hasPiece() or containsFieldName(tracked_pawn_fields_1, boardFields[piece_row-1][piece_column+1].getName()):
                 if not(boardFields[piece_row-1][piece_column+1].getPiece().getOwner().getPlayer() == origin_field.getPiece().getOwner().getPlayer()):
                     valid_moves.append(boardFields[piece_row-1][piece_column+1].getName())
-
 
     return valid_moves
 
@@ -1436,6 +1446,19 @@ def checkFutureConflicts(field_to_move_to: Field, enemy_player: int, origin_fiel
 
     origin_field.setPiece(piece)
 
+def findKingCheckBlocks(king_field: Field) -> list:
+    moves = getAllMovesByColor(king_field.getPiece().getOwner().getColor())
+    global boardFields
+    blocking_moves = []
+    for move in moves:
+        board_copy = copy.deepcopy(boardFields)
+        movePiece(getFieldByName(move.origin_field_name), move.getMoveFieldName())
+        if not checkIfKingCheck():
+            blocking_moves.append(move)
+        boardFields = board_copy
+    return blocking_moves
+
+
 
 def containsFieldName(list_to_search_in: list, what_to_search_for: str) -> bool:
     for name in list_to_search_in:
@@ -1472,6 +1495,7 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, bIs_simulated:
     if origin_field.getPiece().getKind() == "Pawn" and target_field.getRow() == origin_field.getRow() - 2:
         tracked_pawn_fields_2.append(boardFields[origin_field.getRow()-1][origin_field.getColumn()].getName())
     elif origin_field.getPiece().getKind() == "Pawn" and target_field.getRow() == origin_field.getRow() + 2:
+        global turn
         tracked_pawn_fields_1.append(boardFields[origin_field.getRow()+1][origin_field.getColumn()].getName())
     if target_field.getPiece().getKind() == "Rook" and target_field.getPiece().getOwner().getPlayer() == current_player:
         global castle
@@ -1529,13 +1553,13 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, bIs_simulated:
                 getFieldByName("F1").setPiece(target_field.getPiece())
                 getFieldByName("F1").getPiece().setHasMoved(True)
                 target_field.setPiece(None)
-        if origin_field.getName() == "D8":
+        if origin_field.getName() == "E8":
             if target_field.getName() == "A8":
-                getFieldByName("B8").setPiece(origin_field.getPiece())
-                getFieldByName("B8").getPiece().setHasMoved(True)
-                origin_field.setPiece(None)
-                getFieldByName("C8").setPiece(target_field.getPiece())
+                getFieldByName("C8").setPiece(origin_field.getPiece())
                 getFieldByName("C8").getPiece().setHasMoved(True)
+                origin_field.setPiece(None)
+                getFieldByName("D8").setPiece(target_field.getPiece())
+                getFieldByName("D8").getPiece().setHasMoved(True)
                 target_field.setPiece(None)
             if target_field.getName() == "H8":
                 getFieldByName("F8").setPiece(origin_field.getPiece())
@@ -1574,11 +1598,10 @@ def movePiece(origin_field: Field, name_of_field_to_move_to: str, bIs_simulated:
     for name in findPiecesByKind("King"):
         field = getFieldByName(name)
         if not(getValidKingMoves(field)) and not(is_surrounded_by_allies(field)):
-            if not bIs_simulated:
-                if field.getPiece().getOwner().getPlayer() == 1:
-                    gameWon(2)
-                else:
-                    gameWon(1)
+            if field.getPiece().getOwner().getPlayer() == 1:
+                gameWon(2)
+            else:
+                gameWon(1)
     #addMoveHistory(origin_field, origin_piece_kind, target_field)
     root.update_idletasks()
     drawWindow()
